@@ -86,6 +86,59 @@ function AdminApp() {
     return () => clearInterval(interval);
   }, []);
 
+  // --- BULK IMPORT HANDLERS ---
+  const handleImportProductsFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsedData = JSON.parse(event.target.result);
+        const productsArray = Array.isArray(parsedData) ? parsedData : parsedData.products;
+
+        fetch('https://karamstores.onrender.com/api/products/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ products: productsArray })
+        })
+          .then(res => res.json())
+          .then(data => {
+            alert(data.message || 'Products imported successfully!');
+            fetchData();
+          });
+      } catch (err) {
+        alert('Invalid JSON file format. Please upload a valid JSON exported file.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImportOrdersFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsedData = JSON.parse(event.target.result);
+        const ordersArray = Array.isArray(parsedData) ? parsedData : parsedData.orders;
+
+        fetch('https://karamstores.onrender.com/api/orders/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orders: ordersArray })
+        })
+          .then(res => res.json())
+          .then(data => {
+            alert(data.message || 'Orders imported successfully!');
+            fetchData();
+          });
+      } catch (err) {
+        alert('Invalid JSON file format.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const handleUpdateSettings = (e) => {
     e.preventDefault();
     fetch('https://karamstores.onrender.com/api/settings', {
@@ -561,7 +614,7 @@ function AdminApp() {
                   placeholder="🔍 Scan barcode gun or type product/ID here..." 
                   value={searchQuery}
                   onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                  style={{ padding: '0.7rem 1rem', borderRadius: '6px', border: '2px solid #cbd5e1', background: '#f8fafc', width: '420px', outline: 'none', fontSize: '0.95rem', fontWeight: '500' }}
+                  style={{ padding: '0.7rem 1rem', borderRadius: '6px', border: '2px solid #cbd5e1', background: '#f8fafc', width: '380px', outline: 'none', fontSize: '0.95rem', fontWeight: '500' }}
                 />
                 <select 
                   value={selectedCategory} 
@@ -573,12 +626,21 @@ function AdminApp() {
                   ))}
                 </select>
               </div>
-              <button 
-                onClick={() => setIsAddModalOpen(true)}
-                style={{ background: '#1c1917', color: '#fff', border: 'none', padding: '0.7rem 1.4rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-              >
-                + Add New Product
-              </button>
+
+              <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+                {/* IMPORT PRODUCTS BUTTON */}
+                <label style={{ background: '#0284c7', color: '#fff', padding: '0.7rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  📤 Import Products (JSON)
+                  <input type="file" accept=".json" onChange={handleImportProductsFile} style={{ display: 'none' }} />
+                </label>
+
+                <button 
+                  onClick={() => setIsAddModalOpen(true)}
+                  style={{ background: '#1c1917', color: '#fff', border: 'none', padding: '0.7rem 1.4rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                >
+                  + Add New Product
+                </button>
+              </div>
             </div>
 
             <div style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '2rem' }}>
@@ -839,12 +901,21 @@ function AdminApp() {
           <div style={{ background: '#ffffff', padding: '1.5rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
               <h3 style={{ margin: 0, color: '#1e293b' }}>Customer Orders Management ({orders.length})</h3>
-              <button 
-                onClick={handlePrintManifest}
-                style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
-              >
-                🖨️ Print Driver Manifest
-              </button>
+              
+              <div style={{ display: 'flex', gap: '0.8rem' }}>
+                {/* IMPORT ORDERS BUTTON */}
+                <label style={{ background: '#0284c7', color: '#fff', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  📤 Import Orders (JSON)
+                  <input type="file" accept=".json" onChange={handleImportOrdersFile} style={{ display: 'none' }} />
+                </label>
+
+                <button 
+                  onClick={handlePrintManifest}
+                  style={{ background: '#4a4543', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                >
+                  🖨️ Print Driver Manifest
+                </button>
+              </div>
             </div>
             {orders.length === 0 ? (
               <p style={{ color: '#64748b', padding: '2rem 0', textAlign: 'center' }}>No orders placed yet.</p>

@@ -5,7 +5,7 @@ const path = require('path');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Increased limit to support bulk imports
 
 const PRODUCTS_FILE = path.join(__dirname, 'products.json');
 const CATEGORIES_FILE = path.join(__dirname, 'categories.json');
@@ -104,6 +104,53 @@ app.post('/api/products', (req, res) => {
   res.status(201).json(newProduct);
 });
 
+// BULK PRODUCTS IMPORT ENDPOINT
+app.post('/api/products/import', (req, res) => {
+  try {
+    const incomingProducts = req.body.products;
+    if (!Array.isArray(incomingProducts)) {
+      return res.status(400).json({ error: 'Invalid format. Expected an array of products.' });
+    }
+
+    incomingProducts.forEach(item => {
+      const pId = item.id || item._id ? String(item.id || item._id).trim() : 'ITEM-' + Math.floor(1000 + Math.random() * 9000);
+      const existingIndex = products.findIndex(p => String(p.id || p._id) === pId);
+
+      const formattedProduct = {
+        id: pId,
+        _id: pId,
+        name: item.name || 'Unnamed Product',
+        category: item.category || 'General',
+        price: Number(item.price) || 0,
+        stock: Number(item.stock) || 0,
+        image: item.image || '',
+        images: Array.isArray(item.images) ? item.images : [],
+        description: item.description || '',
+        sizes: Array.isArray(item.sizes) ? item.sizes : [],
+        colors: Array.isArray(item.colors) ? item.colors : [],
+        featured: Boolean(item.featured)
+      };
+
+      if (existingIndex >= 0) {
+        products[existingIndex] = formattedProduct; // Update if ID exists
+      } else {
+        products.push(formattedProduct); // Insert if new
+      }
+
+      // Automatically add category if missing from list
+      if (formattedProduct.category && !categoriesList.includes(formattedProduct.category)) {
+        categoriesList.push(formattedProduct.category);
+      }
+    });
+
+    saveData(PRODUCTS_FILE, products);
+    saveData(CATEGORIES_FILE, categoriesList);
+    res.json({ success: true, message: `Successfully imported ${incomingProducts.length} products.`, products });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to import products' });
+  }
+});
+
 app.patch('/api/products/:id', (req, res) => {
   const { id } = req.params;
   const { newId, price, stock, name, category, image, images, description, sizes, colors, featured } = req.body;
@@ -181,6 +228,52 @@ app.post('/api/orders', async (req, res) => {
     res.status(201).json({ success: true, order: newOrder });
   } catch (err) {
     res.status(500).json({ error: 'Failed to create order' });
+  }
+});
+
+// BULK ORDERS IMPORT ENDPOINT
+app.post('/api/orders/import', (req, res) => {
+  try {
+    const incomingOrders = req.body.orders;
+    if (!Array.isArray(incomingOrders)) {
+      return res.status(400).json({ error: 'Invalid format. Expected an array of orders.' });
+    }
+
+    incomingOrders.forEach(ord => {
+      const oId = ord.id || ord._id ? String(ord.id || ord._id) : orders.length + 1;
+      const existingIndex = orders.findIndex(o => String(o.id || o._id) === String(oId));
+
+      const formattedOrder = {
+        id: oId,
+        _id: oId,
+        items: Array.isArray(ord.items) ? ord.items : [],
+        total: Number(ord.total) || 0,
+        deliveryFee: Number(ord.deliveryFee) || storeSettings.deliveryFee,
+        discountAmount: Number(ord.discountAmount) || 0,
+        grandTotal: Number(ord.grandTotal) || Number(ord.total || 0) + 3.00,
+        status: ord.status || 'Pending',
+        createdAt: ord.createdAt || new Date().toISOString(),
+        customer: {
+          arabicName: ord.customer?.arabicName || ord.arabicName || 'N/A',
+          phone1: ord.customer?.phone1 || ord.phone || 'N/A',
+          phone2: ord.customer?.phone2 || ord.phone2 || '',
+          manualAddress: ord.customer?.manualAddress || ord.address || 'N/A',
+          mapCoordinates: ord.customer?.mapCoordinates || 'Not pinned',
+          paymentMethod: 'Cash on Delivery'
+        }
+      };
+
+      if (existingIndex >= 0) {
+        orders[existingIndex] = formattedOrder;
+      } else {
+        orders.push(formattedOrder);
+      }
+    });
+
+    saveData(ORDERS_FILE, orders);
+    res.json({ success: true, message: `Successfully imported ${incomingOrders.length} orders.`, orders });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to import orders' });
   }
 });
 
