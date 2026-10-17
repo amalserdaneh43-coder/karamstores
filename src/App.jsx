@@ -181,21 +181,21 @@ function StoreApp() {
   const [expandedReceiptId, setExpandedReceiptId] = useState(null);
 
   const fetchProducts = () => {
-    fetch('http://localhost:5000/api/products')
+    fetch('https://karamstores.onrender.com')
       .then(res => res.json())
       .then(data => setProducts(data))
       .catch(err => console.error('Error fetching products:', err));
   };
 
   const fetchOrders = () => {
-    fetch('http://localhost:5000/api/orders')
+    fetch('https://karamstores.onrender.com')
       .then(res => res.json())
       .then(data => setAllOrders(data))
       .catch(err => console.error('Error fetching orders:', err));
   };
 
   const fetchSettings = () => {
-    fetch('http://localhost:5000/api/settings')
+    fetch('https://karamstores.onrender.com')
       .then(res => res.json())
       .then(data => setStoreSettings(data))
       .catch(err => console.error('Error fetching settings:', err));
@@ -339,7 +339,7 @@ function StoreApp() {
       }
     };
 
-    fetch('http://localhost:5000/api/orders', {
+    fetch('https://karamstores.onrender.com', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(orderData)
