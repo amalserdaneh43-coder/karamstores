@@ -39,7 +39,7 @@ const translations = {
     backToCart: "Back to Cart",
     reviewOrder: "Submit Order",
     pastOrdersTitle: "My Past Orders & Receipts",
-    noPastOrders: "No past orders found.",
+    noPastOrders: "No past orders found for this phone number.",
     orderId: "Order ID:",
     status: "Status:",
     totalDue: "Total Due:",
@@ -104,7 +104,7 @@ const translations = {
     backToCart: "العودة إلى السلة",
     reviewOrder: "إرسال الطلب",
     pastOrdersTitle: "طلباتي السابقة والإيصالات",
-    noPastOrders: "لم يتم العثور على طلبات سابقة.",
+    noPastOrders: "لم يتم العثور على طلبات سابقة لهذا الرقم.",
     orderId: "رقم الطلب:",
     status: "الحالة:",
     totalDue: "المبلغ المستحق:",
@@ -322,6 +322,9 @@ function StoreApp() {
       return;
     }
 
+    const trimmedPhone = phone.trim();
+    localStorage.setItem('user_phone', trimmedPhone);
+
     const orderData = { 
       items: cart, 
       total: cartSubtotal,
@@ -329,11 +332,11 @@ function StoreApp() {
       discountAmount: discountValue,
       grandTotal: grandTotal,
       arabicName: arabicName.trim(),
-      phone: phone.trim(),
+      phone: trimmedPhone,
       address: manualAddress.trim(),
       customer: {
         arabicName: arabicName.trim() || 'N/A',
-        phone1: phone.trim() || 'N/A',
+        phone1: trimmedPhone || 'N/A',
         manualAddress: manualAddress.trim() || 'N/A',
         paymentMethod: 'Cash on Delivery'
       }
@@ -404,6 +407,13 @@ function StoreApp() {
     { key: 'Kitchen', labelEn: t.catKitchen, labelAr: t.catKitchen, iconSrc: '/icons/kitchen.png' },
     { key: 'More', labelEn: t.catMore, labelAr: t.catMore, iconSrc: '/icons/more.png' },
   ];
+
+  const userPhone = localStorage.getItem('user_phone');
+  const myOrders = allOrders.filter(ord => {
+    if (!userPhone) return false;
+    const ordPhone = ord.customer?.phone1 || ord.phone;
+    return String(ordPhone) === String(userPhone);
+  });
 
   return (
     <div dir={isRtl ? 'rtl' : 'ltr'} style={{ fontFamily: "'Plus Jakarta Sans', 'Cairo', system-ui, sans-serif", background: '#242323', color: '#FFF7EE', minHeight: '100vh', margin: 0, paddingBottom: '6rem', textAlign: isRtl ? 'right' : 'left', boxSizing: 'border-box' }}>
@@ -1143,10 +1153,10 @@ function StoreApp() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-              {allOrders.length === 0 ? (
+              {myOrders.length === 0 ? (
                 <p style={{ color: '#FFF7EE', opacity: 0.6, textAlign: 'center', padding: '2rem 0', fontSize: '0.9rem' }}>{t.noPastOrders}</p>
               ) : (
-                allOrders.map(ord => {
+                myOrders.map(ord => {
                   const oId = ord.id || ord._id;
                   const statusColor = ord.status === 'Shipped' ? '#4ade80' : ord.status === 'Processing' ? '#facc15' : '#60a5fa';
                   const isExpanded = expandedReceiptId === oId;
