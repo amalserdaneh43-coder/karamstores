@@ -138,13 +138,12 @@ app.delete('/api/products/:id', (req, res) => {
   res.json({ message: 'Product removed successfully' });
 });
 
-// POST /api/orders (Includes automatic stock deduction & discount calculations)
+// --- ORDER ENDPOINTS ---
 app.post('/api/orders', async (req, res) => {
   try {
     const incomingOrder = req.body;
     const items = incomingOrder.items || [];
 
-    // Deduct stock automatically
     items.forEach(item => {
       const prod = products.find(p => String(p.id || p._id) === String(item.id || item._id));
       if (prod) {
@@ -185,16 +184,16 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
+app.get('/api/orders', async (req, res) => {
+  res.json(orders);
+});
+
 app.patch('/api/orders/:id', (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   orders = orders.map(o => (String(o.id) === String(id) || String(o._id) === String(id)) ? { ...o, status } : o);
   saveData(ORDERS_FILE, orders);
   res.json({ message: 'Order status updated successfully' });
-});
-
-app.get('/api/orders', async (req, res) => {
-  res.json(orders);
 });
 
 app.delete('/api/orders/:id', async (req, res) => {
@@ -208,7 +207,7 @@ app.delete('/api/orders/:id', async (req, res) => {
   }
 });
 
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Backend server running on http://localhost:${PORT}`);
+  console.log(`Backend server running on port ${PORT}`);
 });
