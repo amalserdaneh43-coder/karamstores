@@ -52,17 +52,17 @@ function AdminApp() {
   const [printMode, setPrintMode] = useState('receipt'); // 'receipt' | 'barcodes'
 
   const fetchData = () => {
-    fetch('http://localhost:5000/api/products')
+    fetch('https://karamstores.onrender.com/api/products')
       .then(res => res.json())
       .then(data => setProducts(data))
       .catch(err => console.error('Error fetching products:', err));
 
-    fetch('http://localhost:5000/api/orders')
+    fetch('https://karamstores.onrender.com/api/orders')
       .then(res => res.json())
       .then(data => setOrders(data))
       .catch(err => console.error('Error fetching orders:', err));
 
-    fetch('http://localhost:5000/api/categories')
+    fetch('https://karamstores.onrender.com/api/categories')
       .then(res => res.json())
       .then(data => {
         setCategories(data);
@@ -71,7 +71,7 @@ function AdminApp() {
       })
       .catch(err => console.error('Error fetching categories:', err));
 
-    fetch('http://localhost:5000/api/settings')
+    fetch('https://karamstores.onrender.com/api/settings')
       .then(res => res.json())
       .then(data => {
         setSettings(data);
@@ -88,7 +88,7 @@ function AdminApp() {
 
   const handleUpdateSettings = (e) => {
     e.preventDefault();
-    fetch('http://localhost:5000/api/settings', {
+    fetch('https://karamstores.onrender.com/api/settings', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ deliveryFee: Number(editDeliveryFee) })
@@ -106,7 +106,7 @@ function AdminApp() {
     if (!newPromoCode.trim() || !newPromoVal) return;
     const updatedCodes = { ...settings.discountCodes, [newPromoCode.trim().toUpperCase()]: Number(newPromoVal) };
 
-    fetch('http://localhost:5000/api/settings', {
+    fetch('https://karamstores.onrender.com/api/settings', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ discountCodes: updatedCodes })
@@ -124,7 +124,7 @@ function AdminApp() {
     const updatedCodes = { ...settings.discountCodes };
     delete updatedCodes[codeKey];
 
-    fetch('http://localhost:5000/api/settings', {
+    fetch('https://karamstores.onrender.com/api/settings', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ discountCodes: updatedCodes })
@@ -138,7 +138,7 @@ function AdminApp() {
     e.preventDefault();
     if (!newCategoryName.trim()) return;
 
-    fetch('http://localhost:5000/api/categories', {
+    fetch('https://karamstores.onrender.com/api/categories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newCategoryName.trim() })
@@ -154,7 +154,7 @@ function AdminApp() {
   const handleDeleteCategory = (catName) => {
     if (!window.confirm(`Delete category "${catName}"? Products inside will be moved to General.`)) return;
 
-    fetch(`http://localhost:5000/api/categories/${encodeURIComponent(catName)}`, {
+    fetch(`https://karamstores.onrender.com/api/categories/${encodeURIComponent(catName)}`, {
       method: 'DELETE'
     })
       .then(res => res.json())
@@ -186,7 +186,7 @@ function AdminApp() {
       featured: isFeatured
     };
 
-    fetch('http://localhost:5000/api/products', {
+    fetch('https://karamstores.onrender.com/api/products', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newProductData)
@@ -215,7 +215,7 @@ function AdminApp() {
   const handleDeleteProduct = (id) => {
     if (!window.confirm('Are you sure you want to remove this item?')) return;
 
-    fetch(`http://localhost:5000/api/products/${id}`, {
+    fetch(`https://karamstores.onrender.com/api/products/${id}`, {
       method: 'DELETE'
     })
       .then(res => {
@@ -238,7 +238,7 @@ function AdminApp() {
   };
 
   const saveInlineEdit = (oldId) => {
-    fetch(`http://localhost:5000/api/products/${oldId}`, {
+    fetch(`https://karamstores.onrender.com/api/products/${oldId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -260,7 +260,7 @@ function AdminApp() {
   };
 
   const updateOrderStatus = (id, newStatus) => {
-    fetch(`http://localhost:5000/api/orders/${id}`, {
+    fetch(`https://karamstores.onrender.com/api/orders/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus })
@@ -275,7 +275,7 @@ function AdminApp() {
   const handleDeleteOrder = (id) => {
     if (!window.confirm(`Are you sure you want to cancel and delete order #${id}? This action cannot be undone.`)) return;
 
-    fetch(`http://localhost:5000/api/orders/${id}`, {
+    fetch(`https://karamstores.onrender.com/api/orders/${id}`, {
       method: 'DELETE'
     })
       .then(res => {
