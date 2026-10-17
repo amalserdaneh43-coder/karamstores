@@ -1,0 +1,89 @@
+[
+  {
+    "id": 1,
+    "items": [
+      {
+        "id": "6578465137110",
+        "_id": "6578465137110",
+        "name": "طنجرة",
+        "category": "ادوات منزلية",
+        "price": 25,
+        "stock": 7,
+        "image": "https://www.ikea.com/ca/en/images/products/ikea-365-pot-with-lid-stainless-steel__1006173_pe825758_s5.jpg?f=s",
+        "images": [],
+        "description": "silver pot",
+        "sizes": [
+          "23",
+          "24",
+          "25",
+          "26"
+        ],
+        "colors": [
+          "silver",
+          "gold"
+        ],
+        "featured": true,
+        "selectedSize": "23",
+        "selectedColor": "gold",
+        "quantity": 1
+      }
+    ],
+    "total": 25,
+    "deliveryFee": 3,
+    "grandTotal": 28,
+    "status": "Shipped",
+    "createdAt": "2026-10-14T17:10:37.070Z",
+    "customer": {
+      "arabicName": "منال احمد",
+      "phone1": "0766666666",
+      "phone2": "0799999999",
+      "manualAddress": "صفا",
+      "mapCoordinates": "Not pinned",
+      "paymentMethod": "Cash on Delivery"
+    }
+  },
+  {
+    "id": 2,
+    "items": [
+      {
+        "id": "6578465137110",
+        "_id": "6578465137110",
+        "name": "طنجرة",
+        "category": "ادوات منزلية",
+        "price": 25,
+        "stock": 6,
+        "image": "https://www.ikea.com/ca/en/images/products/ikea-365-pot-with-lid-stainless-steel__1006173_pe825758_s5.jpg?f=s",
+        "images": [],
+        "description": "silver pot",
+        "sizes": [
+          "23",
+          "24",
+          "25",
+          "26"
+        ],
+        "colors": [
+          "silver",
+          "gold"
+        ],
+        "featured": true,
+        "selectedSize": "25",
+        "selectedColor": "gold",
+        "quantity": 1
+      }
+    ],
+    "total": 25,
+    "deliveryFee": 3,
+    "discountAmount": 5,
+    "grandTotal": 23,
+    "status": "Pending",
+    "createdAt": "2026-10-14T19:28:12.944Z",
+    "customer": {
+      "arabicName": "dssadsd222",
+      "phone1": "3232232323",
+      "phone2": "3233232323",
+      "manualAddress": "dgsadghsahd",
+      "mapCoordinates": "Not pinned",
+      "paymentMethod": "Cash on Delivery"
+    }
+  }
+]
