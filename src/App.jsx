@@ -9,6 +9,8 @@ const translations = {
     searchPlaceholder: "Search store products...",
     completeCatalog: "Complete Product Catalog",
     categoryCatalog: "Category Products",
+    allCategoriesFilter: "All Categories",
+    filterByCat: "Filter by Category:",
     searchResults: "Search Results for",
     backToCatalog: "← Back to Store Catalog",
     selectSize: "Select Size:",
@@ -78,6 +80,8 @@ const translations = {
     searchPlaceholder: "ابحث عن منتجات المتجر...",
     completeCatalog: "كتالوج المنتجات الكامل",
     categoryCatalog: "منتجات الفئة",
+    allCategoriesFilter: "جميع الفئات",
+    filterByCat: "تصفية حسب الفئة:",
     searchResults: "نتائج البحث عن",
     backToCatalog: "← العودة إلى الكتالوج",
     selectSize: "اختر المقاس:",
@@ -117,7 +121,7 @@ const translations = {
     hideReceipt: "إخفاء الإيصال",
     viewReceipt: "عرض الإيصال",
     officialReceipt: "إيصال الطلب الرسمي",
-    nameArabic: "الاسم (العربية):",
+    nameArabic: "Name (العربية):",
     phones: "رقم الهاتف:",
     address: "العنوان:",
     orderedItems: "المنتجات المطلوبة:",
@@ -153,9 +157,11 @@ export default function StoreApp() {
   const [submittedSearchQuery, setSubmittedSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false); 
   const [selectedCategoryView, setSelectedCategoryView] = useState(null);
+  const [isMoreCatalogOpen, setIsMoreCatalogOpen] = useState(false); // Full store explorer for "More"
+  const [selectedFilterCategory, setSelectedFilterCategory] = useState('All');
 
   const [lang, setLang] = useState('ar'); 
-  const [storeSettings, setStoreSettings] = useState({ deliveryFee: 3.00, discountCodes: {} });
+  const [storeSettings, setStoreSettings] = useState({ deliveryFee: 2.00, discountCodes: {} });
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
   const triggerToast = (message, type = 'success') => {
@@ -185,8 +191,6 @@ export default function StoreApp() {
 
   const [allOrders, setAllOrders] = useState([]);
   const [expandedReceiptId, setExpandedReceiptId] = useState(null);
-
-  // Explicit lookup phone state for the past orders modal so users can check any number easily!
   const [lookupPhone, setLookupPhone] = useState(localStorage.getItem('user_phone') || '');
 
   const fetchProducts = () => {
@@ -219,6 +223,7 @@ export default function StoreApp() {
   const openProductDetails = (product) => {
     setSelectedProduct(product);
     setSelectedCategoryView(null);
+    setIsMoreCatalogOpen(false);
     setSubmittedSearchQuery('');
     setIsSearchOpen(false);
     setActiveImage(product.image || (product.images && product.images[0]) || '');
@@ -263,7 +268,7 @@ export default function StoreApp() {
   };
 
   const cartSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const deliveryFee = storeSettings.deliveryFee || 3.00;
+  const deliveryFee = storeSettings.deliveryFee || 2.00;
   const grandTotal = Math.max(0, cartSubtotal + deliveryFee - discountValue);
 
   const handleApplyDiscount = () => {
@@ -283,10 +288,10 @@ export default function StoreApp() {
   const handleWhatsAppCheckout = () => {
     if (cart.length === 0) return;
     let text = `New Order from Karam Stores:\n`;
-    cart.forEach(i => { text += `- ${i.name} (Qty: ${i.quantity}) - $${(i.price * i.quantity).toFixed(2)}\n`; });
-    text += `Subtotal: $${cartSubtotal.toFixed(2)}\nDelivery Fee: $${deliveryFee.toFixed(2)}`;
-    if (discountValue > 0) text += `\nDiscount (${appliedPromoCode}): -$${discountValue.toFixed(2)}`;
-    text += `\nTotal: $${grandTotal.toFixed(2)}`;
+    cart.forEach(i => { text += `- ${i.name} (Qty: ${i.quantity}) - ${ (i.price * i.quantity).toFixed(2) } JD\n`; });
+    text += `Subtotal: ${ cartSubtotal.toFixed(2) } JD\nDelivery Fee: ${ deliveryFee.toFixed(2) } JD`;
+    if (discountValue > 0) text += `\nDiscount (${appliedPromoCode}): -${ discountValue.toFixed(2) } JD`;
+    text += `\nTotal: ${ grandTotal.toFixed(2) } JD`;
     window.open(`https://wa.me/962000000000?text=${encodeURIComponent(text)}`, '_blank');
   };
 
@@ -295,6 +300,7 @@ export default function StoreApp() {
     if (!catalogSearch.trim()) return;
     setSubmittedSearchQuery(catalogSearch.trim());
     setSelectedCategoryView(null);
+    setIsMoreCatalogOpen(false);
     setSelectedProduct(null);
     setIsSearchOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -314,7 +320,7 @@ export default function StoreApp() {
 
     const trimmedPhone = phone.trim();
     localStorage.setItem('user_phone', trimmedPhone);
-    setLookupPhone(trimmedPhone); // Sync lookup state
+    setLookupPhone(trimmedPhone);
 
     const orderData = { 
       items: cart, 
@@ -385,6 +391,11 @@ export default function StoreApp() {
     return products.filter(p => p.category && p.category.toLowerCase() === selectedCategoryView.toLowerCase());
   }, [products, selectedCategoryView]);
 
+  const moreFilteredProducts = useMemo(() => {
+    if (selectedFilterCategory === 'All') return products;
+    return products.filter(p => p.category && p.category.toLowerCase() === selectedFilterCategory.toLowerCase());
+  }, [products, selectedFilterCategory]);
+
   const similarProducts = selectedProduct 
     ? products.filter(p => p.category === selectedProduct.category && (p.id || p._id) !== (selectedProduct.id || selectedProduct._id))
     : [];
@@ -398,7 +409,6 @@ export default function StoreApp() {
     { key: 'More', labelEn: t.catMore, labelAr: t.catMore, iconSrc: '/icons/more.png' },
   ];
 
-  // Filter orders matching the explicit lookup phone number
   const myOrders = allOrders.filter(ord => {
     if (!lookupPhone.trim()) return false;
     const ordPhone = ord.customer?.phone1 || ord.phone;
@@ -417,7 +427,7 @@ export default function StoreApp() {
 
       {/* Top Navbar */}
       <nav className="navbar">
-        <div onClick={() => { setSelectedProduct(null); setSelectedCategoryView(null); setSubmittedSearchQuery(''); setCatalogSearch(''); setIsSearchOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
+        <div onClick={() => { setSelectedProduct(null); setSelectedCategoryView(null); setIsMoreCatalogOpen(false); setSubmittedSearchQuery(''); setCatalogSearch(''); setIsSearchOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
           <img src="/logo.jpg" alt="Logo" style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #FFF7EE' }} onError={(e) => { e.target.style.display = 'none'; }} />
           <h2 style={{ margin: 0, fontSize: '1.1rem', letterSpacing: '-0.5px', color: '#FFF7EE', fontWeight: '800' }}>{t.storeName}</h2>
         </div>
@@ -457,7 +467,7 @@ export default function StoreApp() {
                       <img src={prod.image || 'https://via.placeholder.com/40'} alt="" style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '4px' }} />
                       <div style={{ flex: 1 }}>
                         <h4 style={{ margin: 0, fontSize: '0.85rem', color: '#FFF7EE' }}>{prod.name}</h4>
-                        <span style={{ fontSize: '0.75rem', color: '#FD7100', fontWeight: 'bold' }}>${Number(prod.price).toFixed(2)}</span>
+                        <span style={{ fontSize: '0.75rem', color: '#FD7100', fontWeight: 'bold' }}>{Number(prod.price).toFixed(2)} JD</span>
                       </div>
                     </div>
                   ))
@@ -495,7 +505,7 @@ export default function StoreApp() {
             <div>
               <span className="badge-category">{selectedProduct.category || 'General'}</span>
               <h1 style={{ margin: '0.5rem 0 0.4rem 0', fontSize: '1.5rem', color: '#FFF7EE', fontWeight: '800' }}>{selectedProduct.name}</h1>
-              <p style={{ fontSize: '1.3rem', fontWeight: '800', color: '#FD7100', margin: '0 0 1rem 0' }}>${Number(selectedProduct.price).toFixed(2)}</p>
+              <p style={{ fontSize: '1.3rem', fontWeight: '800', color: '#FD7100', margin: '0 0 1rem 0' }}>{Number(selectedProduct.price).toFixed(2)} JD</p>
               
               <p style={{ color: '#FFF7EE', opacity: 0.85, lineHeight: '1.5', fontSize: '0.9rem', marginBottom: '1.2rem' }}>
                 {selectedProduct.description || 'High quality product designed for daily convenience.'}
@@ -544,7 +554,7 @@ export default function StoreApp() {
                         <img src={simProd.image || 'https://via.placeholder.com/200'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       </div>
                       <h4 className="product-title">{simProd.name}</h4>
-                      <p style={{ margin: '0 0 0.6rem 0', fontSize: '0.9rem', fontWeight: '700', color: '#FD7100' }}>${Number(simProd.price).toFixed(2)}</p>
+                      <p style={{ margin: '0 0 0.6rem 0', fontSize: '0.9rem', fontWeight: '700', color: '#FD7100' }}>{Number(simProd.price).toFixed(2)} JD</p>
                     </div>
                     <button onClick={(e) => { e.stopPropagation(); openProductDetails(simProd); }} className="btn-primary" style={{ width: '100%', padding: '0.4rem', fontSize: '0.75rem' }}>
                       {t.viewDetails}
@@ -574,7 +584,7 @@ export default function StoreApp() {
                     </div>
                     <span className="badge-category">{product.category || 'General'}</span>
                     <h4 className="product-title">{product.name}</h4>
-                    <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>${Number(product.price).toFixed(2)}</p>
+                    <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(2)} JD</p>
                   </div>
                   <button onClick={(e) => { e.stopPropagation(); openProductDetails(product); }} className="btn-primary" style={{ width: '100%', padding: '0.5rem', fontSize: '0.8rem' }}>{t.viewDetails}</button>
                 </div>
@@ -599,7 +609,59 @@ export default function StoreApp() {
                     </div>
                     <span className="badge-category">{product.category || 'General'}</span>
                     <h4 className="product-title">{product.name}</h4>
-                    <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>${Number(product.price).toFixed(2)}</p>
+                    <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(2)} JD</p>
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); openProductDetails(product); }} className="btn-primary" style={{ width: '100%', padding: '0.5rem', fontSize: '0.8rem' }}>{t.viewDetails}</button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      ) : isMoreCatalogOpen ? (
+        /* VIEW: "MORE" FULL STORE EXPLORER & FILTER VIEW */
+        <div style={{ width: '92%', maxWidth: '1000px', margin: '1.5rem auto' }}>
+          <button onClick={() => setIsMoreCatalogOpen(false)} className="back-button">{t.backToCatalog}</button>
+          <h2 style={{ fontSize: '1.4rem', color: '#FFF7EE', marginBottom: '1rem', fontWeight: '700' }}>{t.completeCatalog}</h2>
+
+          {/* Category Filter Bar */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label className="form-label" style={{ display: 'block', marginBottom: '0.5rem' }}>{t.filterByCat}</label>
+            <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.4rem' }}>
+              {['All', 'Cleaning', 'Furniture', 'Makeup', 'Gifts', 'Kitchen'].map(cat => (
+                <button 
+                  key={cat} 
+                  onClick={() => setSelectedFilterCategory(cat)} 
+                  style={{ 
+                    padding: '0.4rem 0.9rem', 
+                    borderRadius: '8px', 
+                    border: selectedFilterCategory === cat ? '2px solid #FD7100' : '1px solid rgba(255,247,238,0.25)', 
+                    background: selectedFilterCategory === cat ? '#FD7100' : '#2D2C2C', 
+                    color: '#FFF7EE', 
+                    fontWeight: '700', 
+                    fontSize: '0.8rem', 
+                    cursor: 'pointer',
+                    flexShrink: 0
+                  }}
+                >
+                  {cat === 'All' ? t.allCategoriesFilter : cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid-2col">
+            {moreFilteredProducts.length === 0 ? (
+              <p style={{ color: '#FFF7EE', opacity: 0.6, padding: '2rem 0', gridColumn: 'span 2', textAlign: 'center' }}>{lang === 'ar' ? 'لا توجد منتجات في هذه الفئة.' : 'No products found in this category.'}</p>
+            ) : (
+              moreFilteredProducts.map(product => (
+                <div key={product.id || product._id} onClick={() => openProductDetails(product)} className="store-card">
+                  <div>
+                    <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.6rem', background: '#242323' }}>
+                      <img src={product.image || 'https://via.placeholder.com/260'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                    <span className="badge-category">{product.category || 'General'}</span>
+                    <h4 className="product-title">{product.name}</h4>
+                    <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(2)} JD</p>
                   </div>
                   <button onClick={(e) => { e.stopPropagation(); openProductDetails(product); }} className="btn-primary" style={{ width: '100%', padding: '0.5rem', fontSize: '0.8rem' }}>{t.viewDetails}</button>
                 </div>
@@ -610,7 +672,7 @@ export default function StoreApp() {
       ) : (
         /* STANDARD STOREFRONT HOME */
         <>
-          {/* Fixed Banner & Scrolling Pinned Cards Container */}
+          {/* Banner & Scrolling Pinned Cards Container */}
           <div style={{ position: 'relative', width: '100%', minHeight: '320px', overflow: 'hidden', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
             <img src="/background.jpg" alt="Banner" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }} onError={(e) => { e.target.style.display = 'none'; }} />
             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'linear-gradient(180deg, rgba(36,35,35,0.3) 0%, rgba(36,35,35,0.9) 100%)', zIndex: 1 }} />
@@ -625,7 +687,7 @@ export default function StoreApp() {
                           <img src={product.image || 'https://via.placeholder.com/200'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
                         <h4 className="product-title">{product.name}</h4>
-                        <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: '#FD7100' }}>${Number(product.price).toFixed(2)}</p>
+                        <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(2)} JD</p>
                       </div>
                       <button onClick={(e) => { e.stopPropagation(); openProductDetails(product); }} className="btn-primary" style={{ marginTop: '0.6rem', width: '100%', padding: '0.4rem', fontSize: '0.75rem' }}>{t.viewDetails}</button>
                     </div>
@@ -639,7 +701,19 @@ export default function StoreApp() {
           <div style={{ width: '92%', maxWidth: '600px', margin: '0 auto 1.8rem auto' }}>
             <div className="grid-3col">
               {categoriesList.map((cat, index) => (
-                <div key={index} onClick={() => { setSelectedCategoryView(cat.key === 'More' ? null : cat.key); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', textAlign: 'center' }}>
+                <div 
+                  key={index} 
+                  onClick={() => { 
+                    if (cat.key === 'More') {
+                      setIsMoreCatalogOpen(true);
+                      setSelectedFilterCategory('All');
+                    } else {
+                      setSelectedCategoryView(cat.key);
+                    }
+                    window.scrollTo({ top: 0, behavior: 'smooth' }); 
+                  }} 
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', textAlign: 'center' }}
+                >
                   <div className="cat-circle">
                     <img src={cat.iconSrc} alt={cat.key} style={{ width: '30px', height: '30px', objectFit: 'contain' }} onError={(e) => { e.target.style.display = 'none'; }} />
                   </div>
@@ -668,7 +742,7 @@ export default function StoreApp() {
                     </div>
                     <span className="badge-category">{product.category || 'General'}</span>
                     <h4 className="product-title">{product.name}</h4>
-                    <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>${Number(product.price).toFixed(2)}</p>
+                    <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(2)} JD</p>
                   </div>
                   <button onClick={(e) => { e.stopPropagation(); openProductDetails(product); }} className="btn-primary" style={{ width: '100%', padding: '0.5rem', fontSize: '0.8rem' }}>{t.viewDetails}</button>
                 </div>
@@ -688,9 +762,9 @@ export default function StoreApp() {
         </>
       )}
 
-      {/* MOBILE BOTTOM APP NAVIGATION BAR (Clean, Professional Text & Icons) */}
+      {/* MOBILE BOTTOM APP NAVIGATION BAR */}
       <div className="bottom-nav">
-        <button onClick={() => { setSelectedProduct(null); setSelectedCategoryView(null); setSubmittedSearchQuery(''); setIsSearchOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="bottom-nav-btn">
+        <button onClick={() => { setSelectedProduct(null); setSelectedCategoryView(null); setIsMoreCatalogOpen(false); setSubmittedSearchQuery(''); setIsSearchOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="bottom-nav-btn">
           <span className="bottom-nav-icon">⌂</span>
           <span>{t.navHome}</span>
         </button>
@@ -732,7 +806,7 @@ export default function StoreApp() {
                         <p style={{ margin: '0 0 0.2rem 0', fontSize: '0.7rem', color: '#FFF7EE', opacity: 0.7 }}>
                           {item.selectedSize ? `Size: ${item.selectedSize} ` : ''} {item.selectedColor ? `Color: ${item.selectedColor}` : ''}
                         </p>
-                        <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#FD7100' }}>${Number(item.price).toFixed(2)}</span>
+                        <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#FD7100' }}>{Number(item.price).toFixed(2)} JD</span>
                       </div>
                     </div>
 
@@ -754,16 +828,16 @@ export default function StoreApp() {
                 <div style={{ background: '#242323', border: '1px solid rgba(255,247,238,0.2)', borderRadius: '8px', padding: '0.8rem', marginBottom: '0.8rem', fontSize: '0.85rem', color: '#FFF7EE' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
                     <span style={{ opacity: 0.8 }}>{t.subtotal}</span>
-                    <span>${cartSubtotal.toFixed(2)}</span>
+                    <span>{cartSubtotal.toFixed(2)} JD</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
                     <span style={{ opacity: 0.8 }}>{t.deliveryFeeLabel}</span>
-                    <span>${deliveryFee.toFixed(2)}</span>
+                    <span>{deliveryFee.toFixed(2)} JD</span>
                   </div>
                   {discountValue > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', color: '#4ade80' }}>
                       <span>Discount ({appliedPromoCode}):</span>
-                      <span>-${discountValue.toFixed(2)}</span>
+                      <span>-{discountValue.toFixed(2)} JD</span>
                     </div>
                   )}
 
@@ -774,7 +848,7 @@ export default function StoreApp() {
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '1rem', color: '#FFF7EE', borderTop: '1px solid rgba(255,247,238,0.2)', paddingTop: '0.5rem', marginTop: '0.3rem' }}>
                     <span>{t.totalAmount}</span>
-                    <span style={{ color: '#FD7100' }}>${grandTotal.toFixed(2)}</span>
+                    <span style={{ color: '#FD7100' }}>{grandTotal.toFixed(2)} JD</span>
                   </div>
                 </div>
 
@@ -826,7 +900,7 @@ export default function StoreApp() {
         </div>
       )}
 
-      {/* TRACK PAST ORDERS & RECEIPTS MODAL (Enhanced with Phone Lookup Box) */}
+      {/* TRACK PAST ORDERS & RECEIPTS MODAL */}
       {isOrderHistoryOpen && (
         <div className="modal-overlay">
           <div dir={isRtl ? 'rtl' : 'ltr'} className="modal-content">
@@ -835,7 +909,6 @@ export default function StoreApp() {
               <button onClick={() => setIsOrderHistoryOpen(false)} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#FFF7EE' }}>✕</button>
             </div>
 
-            {/* Explicit Phone Number Lookup Box to eliminate user frustration */}
             <div style={{ marginBottom: '1.2rem', background: '#242323', padding: '0.9rem', borderRadius: '10px', border: '1px solid rgba(255,247,238,0.2)' }}>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.4rem', opacity: 0.9 }}>{t.lookupPrompt}</label>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -877,7 +950,7 @@ export default function StoreApp() {
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.6rem' }}>
                         <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#FFF7EE' }}>
-                          {t.totalDue} <span style={{ color: '#FD7100' }}>${Number(ord.grandTotal || ord.total || 0).toFixed(2)}</span>
+                          {t.totalDue} <span style={{ color: '#FD7100' }}>{Number(ord.grandTotal || ord.total || 0).toFixed(2)} JD</span>
                         </span>
                         <button onClick={() => setExpandedReceiptId(isExpanded ? null : oId)} className="btn-primary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}>
                           {isExpanded ? t.hideReceipt : t.viewReceipt}
@@ -901,7 +974,7 @@ export default function StoreApp() {
                             {ord.items && ord.items.map((it, i) => (
                               <div key={i} style={{ fontSize: '0.75rem', color: '#FFF7EE', opacity: 0.85, display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
                                 <span>{it.name} (×{it.quantity})</span>
-                                <span style={{ fontWeight: 'bold', color: '#FD7100' }}>${(it.price * it.quantity).toFixed(2)}</span>
+                                <span style={{ fontWeight: 'bold', color: '#FD7100' }}>{(it.price * it.quantity).toFixed(2)} JD</span>
                               </div>
                             ))}
                           </div>
@@ -909,21 +982,21 @@ export default function StoreApp() {
                           <div style={{ borderTop: '1px solid rgba(255,247,238,0.2)', paddingTop: '0.5rem', fontSize: '0.8rem', color: '#FFF7EE' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
                               <span style={{ opacity: 0.8 }}>{t.subtotal}</span>
-                              <span>${Number(ord.total || 0).toFixed(2)}</span>
+                              <span>{Number(ord.total || 0).toFixed(2)} JD</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
                               <span style={{ opacity: 0.8 }}>{t.deliveryFee}</span>
-                              <span>${Number(ord.deliveryFee || 3.00).toFixed(2)}</span>
+                              <span>{Number(ord.deliveryFee || 2.00).toFixed(2)} JD</span>
                             </div>
                             {ord.discountAmount > 0 && (
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem', color: '#4ade80' }}>
                                 <span>Discount:</span>
-                                <span>-${Number(ord.discountAmount).toFixed(2)}</span>
+                                <span>-{Number(ord.discountAmount).toFixed(2)} JD</span>
                               </div>
                             )}
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '0.9rem', marginTop: '0.3rem', borderTop: '1px solid rgba(255,247,238,0.2)', paddingTop: '0.3rem' }}>
                               <span>{t.totalToPay}</span>
-                              <span style={{ color: '#FD7100' }}>${Number(ord.grandTotal || (ord.total + (ord.deliveryFee || 3.00))).toFixed(2)}</span>
+                              <span style={{ color: '#FD7100' }}>{Number(ord.grandTotal || (ord.total + (ord.deliveryFee || 2.00))).toFixed(2)} JD</span>
                             </div>
                           </div>
                         </div>
