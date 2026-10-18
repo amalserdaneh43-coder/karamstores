@@ -25,7 +25,7 @@ const translations = {
     applyPromo: "Apply",
     totalAmount: "Total Amount:",
     orderNow: "Order Now!",
-    whatsappCheckout: "💬 WhatsApp",
+    whatsappCheckout: "💬 WhatsApp Support",
     customerInfo: "Customer Delivery & Information",
     arabicNameLabel: "Full Name in Arabic (الاسم الكامل بالعربية) *",
     arabicNamePlaceholder: "مثال: محمد أحمد علي",
@@ -38,13 +38,15 @@ const translations = {
     cashOnDelivery: "Cash on Delivery (الدفع عند الاستلام)",
     backToCart: "Back to Cart",
     reviewOrder: "Submit Order",
-    pastOrdersTitle: "My Past Orders & Receipts",
-    noPastOrders: "No past orders found for this phone number.",
+    pastOrdersTitle: "Track My Orders & Receipts",
+    lookupPrompt: "Enter your 10-digit phone number to view your order history:",
+    lookupBtn: "Search Orders",
+    noPastOrders: "No orders found for this phone number.",
     orderId: "Order ID:",
     status: "Status:",
     totalDue: "Total Due:",
-    hideReceipt: "Hide Receipt 📄",
-    viewReceipt: "View Receipt 📄",
+    hideReceipt: "Hide Receipt",
+    viewReceipt: "View Receipt",
     officialReceipt: "Official Order Receipt",
     nameArabic: "Name (العربية):",
     phones: "Phone:",
@@ -63,7 +65,11 @@ const translations = {
     navHome: "Home",
     navSearch: "Search",
     navCart: "Cart",
-    navOrders: "Orders"
+    navOrders: "Orders",
+    storeInfoTitle: "Store Information & Delivery",
+    storeHours: "Working Hours: 9:00 AM - 10:00 PM (Daily)",
+    storeLocation: "Location: Amman, Jordan (Cash on Delivery Available)",
+    storeSupport: "Customer Service: +962 7 0000 0000"
   },
   ar: {
     storeName: "كرم ستورز",
@@ -88,7 +94,7 @@ const translations = {
     applyPromo: "تطبيق",
     totalAmount: "المبلغ الإجمالي:",
     orderNow: "اطلب الان!",
-    whatsappCheckout: "💬 واتساب",
+    whatsappCheckout: "💬 دعم واتساب",
     customerInfo: "معلومات العميل والتوصيل",
     arabicNameLabel: "الاسم الكامل بالعربية *",
     arabicNamePlaceholder: "مثال: محمد أحمد علي",
@@ -101,13 +107,15 @@ const translations = {
     cashOnDelivery: "الدفع عند الاستلام",
     backToCart: "العودة إلى السلة",
     reviewOrder: "إرسال الطلب",
-    pastOrdersTitle: "طلباتي السابقة والإيصالات",
+    pastOrdersTitle: "تتبع طلباتي والإيصالات",
+    lookupPrompt: "أدخل رقم هاتفك المكون من 10 أرقام لعرض سجل طلباتك:",
+    lookupBtn: "بحث عن الطلبات",
     noPastOrders: "لم يتم العثور على طلبات سابقة لهذا الرقم.",
     orderId: "رقم الطلب:",
     status: "الحالة:",
     totalDue: "المبلغ المستحق:",
-    hideReceipt: "إخفاء الإيصال 📄",
-    viewReceipt: "عرض الإيصال 📄",
+    hideReceipt: "إخفاء الإيصال",
+    viewReceipt: "عرض الإيصال",
     officialReceipt: "إيصال الطلب الرسمي",
     nameArabic: "الاسم (العربية):",
     phones: "رقم الهاتف:",
@@ -126,7 +134,11 @@ const translations = {
     navHome: "الرئيسية",
     navSearch: "البحث",
     navCart: "السلة",
-    navOrders: "الطلبات"
+    navOrders: "الطلبات",
+    storeInfoTitle: "معلومات المتجر والتوصيل",
+    storeHours: "ساعات العمل: 9:00 صباحاً - 10:00 مساءً (يومياً)",
+    storeLocation: "الموقع: عمان، الأردن (متوفر الدفع عند الاستلام)",
+    storeSupport: "خدمة العملاء: +962 7 0000 0000"
   }
 };
 
@@ -173,6 +185,9 @@ export default function StoreApp() {
 
   const [allOrders, setAllOrders] = useState([]);
   const [expandedReceiptId, setExpandedReceiptId] = useState(null);
+
+  // Explicit lookup phone state for the past orders modal so users can check any number easily!
+  const [lookupPhone, setLookupPhone] = useState(localStorage.getItem('user_phone') || '');
 
   const fetchProducts = () => {
     fetch('https://karamstores.onrender.com/api/products')
@@ -299,6 +314,7 @@ export default function StoreApp() {
 
     const trimmedPhone = phone.trim();
     localStorage.setItem('user_phone', trimmedPhone);
+    setLookupPhone(trimmedPhone); // Sync lookup state
 
     const orderData = { 
       items: cart, 
@@ -382,11 +398,11 @@ export default function StoreApp() {
     { key: 'More', labelEn: t.catMore, labelAr: t.catMore, iconSrc: '/icons/more.png' },
   ];
 
-  const userPhone = localStorage.getItem('user_phone');
+  // Filter orders matching the explicit lookup phone number
   const myOrders = allOrders.filter(ord => {
-    if (!userPhone) return false;
+    if (!lookupPhone.trim()) return false;
     const ordPhone = ord.customer?.phone1 || ord.phone;
-    return String(ordPhone) === String(userPhone);
+    return String(ordPhone).trim() === String(lookupPhone).trim();
   });
 
   return (
@@ -594,15 +610,16 @@ export default function StoreApp() {
       ) : (
         /* STANDARD STOREFRONT HOME */
         <>
-          <div style={{ position: 'relative', width: '100%', height: '260px', overflow: 'hidden', marginBottom: '1.5rem' }}>
-            <img src="/background.jpg" alt="Banner" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onError={(e) => { e.target.style.display = 'none'; }} />
-            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'linear-gradient(180deg, rgba(36,35,35,0.2) 0%, rgba(36,35,35,0.85) 100%)', zIndex: 1 }} />
+          {/* Fixed Banner & Scrolling Pinned Cards Container */}
+          <div style={{ position: 'relative', width: '100%', minHeight: '320px', overflow: 'hidden', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+            <img src="/background.jpg" alt="Banner" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }} onError={(e) => { e.target.style.display = 'none'; }} />
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'linear-gradient(180deg, rgba(36,35,35,0.3) 0%, rgba(36,35,35,0.9) 100%)', zIndex: 1 }} />
 
             {featuredProducts.length > 0 && (
-              <div style={{ position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)', width: '92%', zIndex: 10 }}>
+              <div style={{ position: 'relative', zIndex: 10, width: '92%', maxWidth: '1000px', margin: '0 auto 15px auto' }}>
                 <div style={{ display: 'flex', gap: '0.8rem', overflowX: 'auto', paddingBottom: '0.4rem' }}>
                   {featuredProducts.map(product => (
-                    <div key={`slide-${product.id || product._id}`} onClick={() => openProductDetails(product)} className="store-card" style={{ minWidth: '200px', maxWidth: '200px' }}>
+                    <div key={`slide-${product.id || product._id}`} onClick={() => openProductDetails(product)} className="store-card" style={{ minWidth: '190px', maxWidth: '190px', flexShrink: 0, background: 'rgba(45, 44, 44, 0.95)', backdropFilter: 'blur(8px)' }}>
                       <div>
                         <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '8px', marginBottom: '0.5rem', background: '#242323' }}>
                           <img src={product.image || 'https://via.placeholder.com/200'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -619,7 +636,7 @@ export default function StoreApp() {
           </div>
 
           {/* 3x2 Grid Categories */}
-          <div style={{ width: '92%', maxWidth: '600px', margin: '0 auto 2rem auto' }}>
+          <div style={{ width: '92%', maxWidth: '600px', margin: '0 auto 1.8rem auto' }}>
             <div className="grid-3col">
               {categoriesList.map((cat, index) => (
                 <div key={index} onClick={() => { setSelectedCategoryView(cat.key === 'More' ? null : cat.key); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', textAlign: 'center' }}>
@@ -658,22 +675,36 @@ export default function StoreApp() {
               ))}
             </div>
           </div>
+
+          {/* Clean Store Information Section Added to Homepage */}
+          <div style={{ width: '92%', maxWidth: '1000px', margin: '2.5rem auto 1rem auto', background: '#2D2C2C', border: '1px solid rgba(255,247,238,0.15)', borderRadius: '12px', padding: '1.2rem 1.5rem' }}>
+            <h4 style={{ margin: '0 0 0.6rem 0', fontSize: '1rem', color: '#FD7100', fontWeight: '700' }}>{t.storeInfoTitle}</h4>
+            <div style={{ fontSize: '0.85rem', opacity: 0.85, display: 'flex', flexDirection: 'column', gap: '0.3rem', lineHeight: '1.5' }}>
+              <span>{t.storeHours}</span>
+              <span>{t.storeLocation}</span>
+              <span>{t.storeSupport}</span>
+            </div>
+          </div>
         </>
       )}
 
-      {/* MOBILE BOTTOM APP NAVIGATION BAR */}
+      {/* MOBILE BOTTOM APP NAVIGATION BAR (Clean, Professional Text & Icons) */}
       <div className="bottom-nav">
         <button onClick={() => { setSelectedProduct(null); setSelectedCategoryView(null); setSubmittedSearchQuery(''); setIsSearchOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="bottom-nav-btn">
-          <span className="bottom-nav-icon">🏠</span>{t.navHome}
+          <span className="bottom-nav-icon">⌂</span>
+          <span>{t.navHome}</span>
         </button>
         <button onClick={() => setIsSearchOpen(!isSearchOpen)} className="bottom-nav-btn">
-          <span className="bottom-nav-icon">🔍</span>{t.navSearch}
+          <span className="bottom-nav-icon">⚲</span>
+          <span>{t.navSearch}</span>
         </button>
         <button onClick={() => setIsCartOpen(true)} className="bottom-nav-btn">
-          <span className="bottom-nav-icon">🛒</span>{t.navCart}
+          <span className="bottom-nav-icon">▢</span>
+          <span>{t.navCart}</span>
         </button>
         <button onClick={() => setIsOrderHistoryOpen(true)} className="bottom-nav-btn">
-          <span className="bottom-nav-icon">📦</span>{t.navOrders}
+          <span className="bottom-nav-icon">≡</span>
+          <span>{t.navOrders}</span>
         </button>
       </div>
 
@@ -795,7 +826,7 @@ export default function StoreApp() {
         </div>
       )}
 
-      {/* PAST ORDERS MODAL */}
+      {/* TRACK PAST ORDERS & RECEIPTS MODAL (Enhanced with Phone Lookup Box) */}
       {isOrderHistoryOpen && (
         <div className="modal-overlay">
           <div dir={isRtl ? 'rtl' : 'ltr'} className="modal-content">
@@ -804,9 +835,29 @@ export default function StoreApp() {
               <button onClick={() => setIsOrderHistoryOpen(false)} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#FFF7EE' }}>✕</button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-              {myOrders.length === 0 ? (
-                <p style={{ color: '#FFF7EE', opacity: 0.6, textAlign: 'center', padding: '2rem 0', fontSize: '0.9rem' }}>{t.noPastOrders}</p>
+            {/* Explicit Phone Number Lookup Box to eliminate user frustration */}
+            <div style={{ marginBottom: '1.2rem', background: '#242323', padding: '0.9rem', borderRadius: '10px', border: '1px solid rgba(255,247,238,0.2)' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.4rem', opacity: 0.9 }}>{t.lookupPrompt}</label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input 
+                  type="tel" 
+                  maxLength="10"
+                  placeholder="07XXXXXXXX" 
+                  value={lookupPhone} 
+                  onChange={e => setLookupPhone(e.target.value.replace(/\D/g, ''))} 
+                  className="form-input"
+                  style={{ flex: 1 }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', maxHeight: '50vh', overflowY: 'auto' }}>
+              {!lookupPhone || lookupPhone.length < 10 ? (
+                <p style={{ color: '#FFF7EE', opacity: 0.6, textAlign: 'center', padding: '1.5rem 0', fontSize: '0.85rem' }}>
+                  {lang === 'ar' ? 'يرجى إدخال رقم الهاتف الكامل المكون من 10 أرقام أعلاه لعرض الطلبات.' : 'Please enter your full 10-digit phone number above to view orders.'}
+                </p>
+              ) : myOrders.length === 0 ? (
+                <p style={{ color: '#FFF7EE', opacity: 0.6, textAlign: 'center', padding: '1.5rem 0', fontSize: '0.85rem' }}>{t.noPastOrders}</p>
               ) : (
                 myOrders.map(ord => {
                   const oId = ord.id || ord._id;
