@@ -20,7 +20,8 @@ export default function AdminDashboard() {
   const [editAddress, setEditAddress] = useState('');
   const [editPhone, setEditPhone] = useState('');
 
-  // Single Product Form State (For quick edits)
+  // Single Product Form State (For adding or editing)
+  const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formName, setFormName] = useState('');
   const [formPrice, setFormPrice] = useState('');
@@ -59,26 +60,33 @@ export default function AdminDashboard() {
     fetchData();
   }, []);
 
-  // --- CSV EXPORT / IMPORT FOR 14,000+ ITEMS ---
+  // --- CLEAN CSV EXPORT WITH UTF-8 BOM FOR EXCEL ---
   const handleExportInventory = () => {
     const headers = ['id', 'name', 'price', 'category', 'stock', 'featured', 'image', 'description'];
     const csvRows = [headers.join(',')];
 
     products.forEach(p => {
+      const escapeCell = (val) => {
+        if (val === null || val === undefined) return '""';
+        const str = String(val).replace(/"/g, '""');
+        return `"${str}"`;
+      };
+
       const row = [
-        p.id || p._id || '',
-        `"${(p.name || '').replace(/"/g, '""')}"`,
-        p.price || 0,
-        `"${(p.category || 'General').replace(/"/g, '""')}"`,
-        p.stock || 0,
-        p.featured ? 'TRUE' : 'FALSE',
-        `"${(p.image || '').replace(/"/g, '""')}"`,
-        `"${(p.description || '').replace(/"/g, '""')}"`
+        escapeCell(p.id || p._id || ''),
+        escapeCell(p.name || ''),
+        escapeCell(p.price || 0),
+        escapeCell(p.category || 'Cleaning'),
+        escapeCell(p.stock || 0),
+        escapeCell(p.featured ? 'TRUE' : 'FALSE'),
+        escapeCell(p.image || ''),
+        escapeCell(p.description || '')
       ];
       csvRows.push(row.join(','));
     });
 
-    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    // Add \uFEFF UTF-8 BOM so Excel opens Arabic and formatting correctly without shifting
+    const blob = new Blob(['\uFEFF' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
@@ -88,6 +96,7 @@ export default function AdminDashboard() {
     document.body.removeChild(link);
   };
 
+  // --- BULLETPROOF CSV IMPORT PARSER ---
   const handleImportInventory = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -95,36 +104,57 @@ export default function AdminDashboard() {
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target.result;
-      const lines = text.split('\n');
+      const lines = text.split(/\r\n|\n/);
       if (lines.length < 2) {
         alert('Invalid CSV file format.');
         return;
       }
 
-      // Simple CSV parser supporting quotes
       const parsedProducts = [];
+      // Skip header row (i = 1)
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
+
+        // Advanced CSV line parser respecting quotes and commas inside text
+        const row = [];
+        let inQuotes = false;
+        let currentField = '';
         
-        // Regex to parse CSV columns safely
-        const match = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
-        if (match.length >= 5) {
-          const cleanVal = (val) => val ? val.replace(/^"|"$/g, '').replace(/""/g, '"') : '';
+        for (let charIdx = 0; charIdx < line.length; charIdx++) {
+          const char = line[charIdx];
+          if (char === '"') {
+            if (inQuotes && line[charIdx + '"'] === '"') {
+              currentField += '"';
+              charIdx++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (char === ',' && !inQuotes) {
+            row.push(currentField);
+            currentField = '';
+          } else {
+            currentField += char;
+          }
+        }
+        row.push(currentField);
+
+        // Map columns: [id, name, price, category, stock, featured, image, description]
+        if (row.length >= 5) {
+          const clean = (val) => (val ? val.trim().replace(/^"|"$/g, '').replace(/""/g, '"') : '');
           parsedProducts.push({
-            name: cleanVal(match[1]),
-            price: parseFloat(cleanVal(match[2])) || 0.0,
-            category: cleanVal(match[3]) || 'Cleaning',
-            stock: parseInt(cleanVal(match[4])) || 10,
-            featured: cleanVal(match[5])?.toUpperCase() === 'TRUE',
-            image: cleanVal(match[6]) || '',
-            description: cleanVal(match[7]) || ''
+            name: clean(row[1]) || 'Unnamed Product',
+            price: parseFloat(clean(row[2])) || 0.0,
+            category: clean(row[3]) || 'Cleaning',
+            stock: parseInt(clean(row[4])) || 10,
+            featured: clean(row[5])?.toUpperCase() === 'TRUE',
+            image: clean(row[6]) || '',
+            description: clean(row[7]) || ''
           });
         }
       }
 
-      if (window.confirm(`Found ${parsedProducts.length} items in CSV. Upload them to the database?`)) {
-        // Bulk push or sequential post
+      if (window.confirm(`Successfully parsed ${parsedProducts.length} items from CSV. Upload them to the database now?`)) {
         let successCount = 0;
         parsedProducts.forEach(prod => {
           fetch('https://karamstores.onrender.com/api/products', {
@@ -143,7 +173,7 @@ export default function AdminDashboard() {
         });
       }
     };
-    reader.readAsText(file);
+    reader.readAsText(file, 'UTF-8');
   };
 
   // --- PRODUCT FORM SAVING ---
@@ -188,6 +218,7 @@ export default function AdminDashboard() {
     setFormStock(prod.stock || 10);
     setFormFeatured(prod.featured || false);
     setFormDescription(prod.description || '');
+    setIsAddingProduct(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -200,6 +231,7 @@ export default function AdminDashboard() {
     setFormStock('10');
     setFormFeatured(false);
     setFormDescription('');
+    setIsAddingProduct(false);
   };
 
   const handleDeleteProduct = (id) => {
@@ -292,12 +324,12 @@ export default function AdminDashboard() {
       .then(data => setSettings(data));
   };
 
-  // --- COMPUTED DATA (SORTED NEWEST TO OLDEST & FILTERED) ---
+  // --- COMPUTED DATA ---
   const sortedOrders = useMemo(() => {
     return [...orders].sort((a, b) => {
       const timeA = new Date(a.createdAt || a.id || 0).getTime();
       const timeB = new Date(b.createdAt || b.id || 0).getTime();
-      return timeB - timeA; // Newest first
+      return timeB - timeA;
     }).filter(ord => {
       const matchesStatus = orderStatusFilter === 'ALL' || (ord.status || 'Pending').toUpperCase() === orderStatusFilter.toUpperCase();
       const query = orderSearchQuery.toLowerCase();
@@ -362,13 +394,12 @@ export default function AdminDashboard() {
         </button>
       </div>
 
-      {/* TAB 1: ORDERS MANAGEMENT (Sorted Newest to Oldest + Filters + Full Transaction View) */}
+      {/* TAB 1: ORDERS MANAGEMENT */}
       {activeTab === 'orders' && (
         <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
             <h3 style={{ margin: 0, color: '#FD7100' }}>📋 Customer Orders (Newest First)</h3>
             
-            {/* Filtering Controls */}
             <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
               <input 
                 type="text" 
@@ -423,7 +454,6 @@ export default function AdminDashboard() {
                       </div>
                     </div>
 
-                    {/* Customer Info Preview */}
                     {ord.customer && (
                       <div style={{ fontSize: '0.85rem', marginBottom: '0.8rem', opacity: 0.9, background: 'rgba(255,247,238,0.03)', padding: '0.6rem', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                         <div>
@@ -437,7 +467,6 @@ export default function AdminDashboard() {
                       </div>
                     )}
 
-                    {/* Ordered Items Summary */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                       <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>
                         Items count: <strong>{ord.items ? ord.items.reduce((s, i) => s + i.quantity, 0) : 0}</strong>
@@ -463,14 +492,11 @@ export default function AdminDashboard() {
       {activeTab === 'inventory' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           
-          {/* Backup & Low Stock Banner */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
-            
-            {/* CSV Backup Card */}
             <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
               <h3 style={{ margin: '0 0 0.5rem 0', color: '#FD7100', fontSize: '1.1rem' }}>💾 14k+ Inventory Backup & Safety</h3>
               <p style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', opacity: 0.7, lineHeight: '1.4' }}>
-                Export your entire product catalog as a CSV backup file, or restore/import items instantly if the server ever resets.
+                Export your entire product catalog as a clean CSV backup file, or restore items instantly if the server ever resets.
               </p>
               <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
                 <button onClick={handleExportInventory} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
@@ -483,7 +509,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Low Stock Warning Card */}
             <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
               <h3 style={{ margin: '0 0 0.5rem 0', color: '#ef4444', fontSize: '1.1rem' }}>⚠️ Low Stock Monitor ({lowStockProducts.length})</h3>
               <p style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', opacity: 0.7, lineHeight: '1.4' }}>
@@ -502,21 +527,22 @@ export default function AdminDashboard() {
                 )}
               </div>
             </div>
-
           </div>
 
-          {/* Product Manager & Search */}
           <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
               <h3 style={{ margin: 0, color: '#FD7100' }}>📦 Manage Catalog ({filteredProducts.length} items shown)</h3>
               
-              <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <button onClick={() => { resetProductForm(); setIsAddingProduct(true); }} style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
+                  ➕ Add New Product Manually
+                </button>
                 <input 
                   type="text" 
-                  placeholder="Search 14k+ items by name..." 
+                  placeholder="Search items by name..." 
                   value={productSearchQuery} 
                   onChange={e => setProductSearchQuery(e.target.value)}
-                  style={{ padding: '0.5rem 0.8rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', fontSize: '0.85rem', width: '220px' }}
+                  style={{ padding: '0.5rem 0.8rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', fontSize: '0.85rem', width: '200px' }}
                 />
                 <select 
                   value={productCategoryFilter} 
@@ -533,30 +559,49 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Quick Product Edit Form */}
-            {editingId && (
-              <div style={{ background: '#242323', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid #FD7100' }}>
-                <h4 style={{ margin: '0 0 0.8rem 0', color: '#FD7100' }}>✏️ Editing Product ID: {editingId}</h4>
-                <form onSubmit={handleSaveProduct} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.8rem' }}>
-                  <input type="text" placeholder="Name" value={formName} onChange={e => setFormName(e.target.value)} required style={{ padding: '0.5rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
-                  <input type="number" step="0.01" placeholder="Price (JD)" value={formPrice} onChange={e => setFormPrice(e.target.value)} required style={{ padding: '0.5rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
-                  <input type="number" placeholder="Stock" value={formStock} onChange={e => setFormStock(e.target.value)} style={{ padding: '0.5rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
-                  <select value={formCategory} onChange={e => setFormCategory(e.target.value)} style={{ padding: '0.5rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }}>
-                    <option value="Cleaning">Cleaning</option>
-                    <option value="Furniture">Furniture</option>
-                    <option value="Makeup">Makeup</option>
-                    <option value="Gifts">Gifts</option>
-                    <option value="Kitchen">Kitchen</option>
-                  </select>
-                  <div style={{ display: 'flex', gap: '0.5rem', gridColumn: 'span 2' }}>
-                    <button type="submit" style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Update Product</button>
-                    <button type="button" onClick={resetProductForm} style={{ background: '#555', color: '#FFF7EE', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>Cancel</button>
+            {/* Manual Add / Edit Product Modal/Form */}
+            {isAddingProduct && (
+              <div style={{ background: '#242323', padding: '1.2rem', borderRadius: '10px', marginBottom: '1.5rem', border: '1px solid #FD7100' }}>
+                <h4 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>{editingId ? `✏️ Edit Product ID: ${editingId}` : '➕ Add New Product Manually'}</h4>
+                <form onSubmit={handleSaveProduct} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.8rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', display: 'block', marginBottom: '0.2rem' }}>Product Name *</label>
+                    <input type="text" value={formName} onChange={e => setFormName(e.target.value)} required style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', display: 'block', marginBottom: '0.2rem' }}>Price (JD) *</label>
+                    <input type="number" step="0.01" value={formPrice} onChange={e => setFormPrice(e.target.value)} required style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', display: 'block', marginBottom: '0.2rem' }}>Category *</label>
+                    <select value={formCategory} onChange={e => setFormCategory(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }}>
+                      <option value="Cleaning">Cleaning</option>
+                      <option value="Furniture">Furniture</option>
+                      <option value="Makeup">Makeup</option>
+                      <option value="Gifts">Gifts</option>
+                      <option value="Kitchen">Kitchen</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', display: 'block', marginBottom: '0.2rem' }}>Stock</label>
+                    <input type="number" value={formStock} onChange={e => setFormStock(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', display: 'block', marginBottom: '0.2rem' }}>Image URL</label>
+                    <input type="text" value={formImage} onChange={e => setFormImage(e.target.value)} placeholder="/icons/... or https://..." style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                  </div>
+                  <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <input type="checkbox" id="featuredCheck" checked={formFeatured} onChange={e => setFormFeatured(e.target.checked)} style={{ width: '16px', height: '16px', accentColor: '#FD7100' }} />
+                    <label htmlFor="featuredCheck" style={{ fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>⭐ Pin as Featured Product on Top Banner</label>
+                  </div>
+                  <div style={{ gridColumn: 'span 2', display: 'flex', gap: '0.8rem', marginTop: '0.5rem' }}>
+                    <button type="submit" style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>{editingId ? 'Update Product' : 'Save Product'}</button>
+                    <button type="button" onClick={resetProductForm} style={{ background: '#555', color: '#FFF7EE', border: 'none', padding: '0.6rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>Cancel</button>
                   </div>
                 </form>
               </div>
             )}
 
-            {/* Product Grid (Paginated / Limited view for performance) */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
               {filteredProducts.slice(0, 30).map(prod => (
                 <div key={prod.id || prod._id} style={{ background: '#242323', padding: '0.9rem', borderRadius: '8px', border: '1px solid rgba(255,247,238,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -585,7 +630,6 @@ export default function AdminDashboard() {
       {/* TAB 3: STORE SETTINGS & PROMO CODES */}
       {activeTab === 'settings' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
-          
           <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
             <h3 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>🚚 Delivery Fee Configuration</h3>
             <form onSubmit={handleUpdateSettings} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -619,7 +663,6 @@ export default function AdminDashboard() {
               )}
             </div>
           </div>
-
         </div>
       )}
 
