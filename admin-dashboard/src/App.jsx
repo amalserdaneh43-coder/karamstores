@@ -20,13 +20,14 @@ export default function AdminDashboard() {
   const [editAddress, setEditAddress] = useState('');
   const [editPhone, setEditPhone] = useState('');
 
-  // Single Product Form State (For adding or editing)
+  // Product Form State (With Multi-Images Support)
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formName, setFormName] = useState('');
   const [formPrice, setFormPrice] = useState('');
   const [formCategory, setFormCategory] = useState('Cleaning');
   const [formImage, setFormImage] = useState('');
+  const [formImagesInput, setFormImagesInput] = useState(''); // Comma separated extra images
   const [formStock, setFormStock] = useState('10');
   const [formFeatured, setFormFeatured] = useState(false);
   const [formDescription, setFormDescription] = useState('');
@@ -60,9 +61,9 @@ export default function AdminDashboard() {
     fetchData();
   }, []);
 
- // --- CLEAN CSV EXPORT (FIXES ARABIC ENCODING & SCIENTIFIC NOTATION IDs) ---
+  // --- CSV EXPORT WITH MULTI-IMAGES SUPPORT ---
   const handleExportInventory = () => {
-    const headers = ['id', 'name', 'price', 'category', 'stock', 'featured', 'image', 'description'];
+    const headers = ['id', 'name', 'price', 'category', 'stock', 'featured', 'image', 'images', 'description'];
     const csvRows = [headers.join(',')];
 
     products.forEach(p => {
@@ -72,8 +73,8 @@ export default function AdminDashboard() {
         return `"${str}"`;
       };
 
-      // Force Excel to format ID as raw text so it never shows scientific notation (E+12)
       const formattedId = `"\t${p.id || p._id || ''}"`;
+      const imagesString = Array.isArray(p.images) ? p.images.join('|') : (p.images || '');
 
       const row = [
         formattedId,
@@ -83,12 +84,12 @@ export default function AdminDashboard() {
         escapeCell(p.stock || 0),
         escapeCell(p.featured ? 'TRUE' : 'FALSE'),
         escapeCell(p.image || ''),
+        escapeCell(imagesString),
         escapeCell(p.description || '')
       ];
       csvRows.push(row.join(','));
     });
 
-    // \uFEFF forces Excel on Windows to read the CSV as UTF-8 Arabic encoding
     const blob = new Blob(['\uFEFF' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -99,7 +100,7 @@ export default function AdminDashboard() {
     document.body.removeChild(link);
   };
 
-  // --- SMART HEADER-AWARE CSV IMPORT PARSER ---
+  // --- BULLETPROOF CSV IMPORT PARSER ---
   const handleImportInventory = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -115,7 +116,6 @@ export default function AdminDashboard() {
         return;
       }
 
-      // Helper to parse a single CSV line respecting quotes
       const parseLine = (line) => {
         const row = [];
         let inQuotes = false;
@@ -140,7 +140,6 @@ export default function AdminDashboard() {
         return row;
       };
 
-      // Read header row to find exact column indices dynamically
       const rawHeaderLine = lines[0].trim();
       const headers = parseLine(rawHeaderLine).map(h => h.toLowerCase().replace(/[^a-z]/g, ''));
       
@@ -149,7 +148,8 @@ export default function AdminDashboard() {
       const catIdx = headers.findIndex(h => h.includes('category') || h.includes('cat'));
       const stockIdx = headers.findIndex(h => h.includes('stock'));
       const featIdx = headers.findIndex(h => h.includes('feature'));
-      const imgIdx = headers.findIndex(h => h.includes('image') || h.includes('img'));
+      const imgIdx = headers.findIndex(h => h === 'image' || h === 'img');
+      const imgsIdx = headers.findIndex(h => h.includes('images') || h.includes('extra'));
       const descIdx = headers.findIndex(h => h.includes('desc'));
 
       const parsedProducts = [];
@@ -157,10 +157,8 @@ export default function AdminDashboard() {
         const line = lines[i].trim();
         if (!line) continue;
         const row = parseLine(line);
-        // Filter out empty rows
         if (row.every(cell => !cell)) continue;
 
-        // Fallback or dynamic lookup based on header indices
         const getName = () => (nameIdx !== -1 ? row[nameIdx] : row[1]) || 'Unnamed';
         const getPrice = () => parseFloat(priceIdx !== -1 ? row[priceIdx] : row[2]) || 0.0;
         const getCat = () => (catIdx !== -1 ? row[catIdx] : row[3]) || 'Cleaning';
@@ -170,7 +168,11 @@ export default function AdminDashboard() {
           return val ? String(val).toUpperCase() === 'TRUE' : false;
         };
         const getImg = () => (imgIdx !== -1 ? row[imgIdx] : row[6]) || '';
-        const getDesc = () => (descIdx !== -1 ? row[descIdx] : row[7]) || '';
+        
+        const rawImgs = imgsIdx !== -1 ? row[imgsIdx] : row[7];
+        const getImagesList = rawImgs ? rawImgs.split('|').map(s => s.trim()).filter(Boolean) : [];
+
+        const getDesc = () => (descIdx !== -1 ? row[descIdx] : row[8]) || '';
 
         parsedProducts.push({
           name: getName(),
@@ -179,11 +181,12 @@ export default function AdminDashboard() {
           stock: getStock(),
           featured: getFeat(),
           image: getImg(),
+          images: getImagesList,
           description: getDesc()
         });
       }
 
-      if (window.confirm(`Successfully parsed ${parsedProducts.length} items from CSV (Headers matched dynamically). Upload them to the database now?`)) {
+      if (window.confirm(`Successfully parsed ${parsedProducts.length} items from CSV. Upload them to the database now?`)) {
         let successCount = 0;
         parsedProducts.forEach(prod => {
           fetch('https://karamstores.onrender.com/api/products', {
@@ -204,14 +207,17 @@ export default function AdminDashboard() {
     };
   };
 
-  // --- PRODUCT FORM SAVING ---
+  // --- PRODUCT FORM SAVING (WITH MULTI-IMAGES) ---
   const handleSaveProduct = (e) => {
     e.preventDefault();
+    const extraImagesArray = formImagesInput ? formImagesInput.split(',').map(s => s.trim()).filter(Boolean) : [];
+
     const productData = {
       name: formName,
       price: parseFloat(formPrice),
       category: formCategory,
       image: formImage,
+      images: extraImagesArray,
       stock: parseInt(formStock) || 0,
       featured: formFeatured,
       description: formDescription
@@ -239,11 +245,12 @@ export default function AdminDashboard() {
 
   const startEditProduct = (prod) => {
     setEditingId(prod.id || prod._id);
-    setFormName(prod.name);
-    setFormPrice(prod.price);
+    setFormName(prod.name || '');
+    setFormPrice(prod.price || '');
     setFormCategory(prod.category || 'Cleaning');
     setFormImage(prod.image || '');
-    setFormStock(prod.stock || 10);
+    setFormImagesInput(Array.isArray(prod.images) ? prod.images.join(', ') : '');
+    setFormStock(prod.stock !== undefined ? String(prod.stock) : '10');
     setFormFeatured(prod.featured || false);
     setFormDescription(prod.description || '');
     setIsAddingProduct(true);
@@ -256,6 +263,7 @@ export default function AdminDashboard() {
     setFormPrice('');
     setFormCategory('Cleaning');
     setFormImage('');
+    setFormImagesInput('');
     setFormStock('10');
     setFormFeatured(false);
     setFormDescription('');
@@ -587,22 +595,22 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Manual Add / Edit Product Modal/Form */}
+            {/* MANUAL ADD / EDIT PRODUCT FORM */}
             {isAddingProduct && (
-              <div style={{ background: '#242323', padding: '1.2rem', borderRadius: '10px', marginBottom: '1.5rem', border: '1px solid #FD7100' }}>
+              <div style={{ background: '#242323', padding: '1.5rem', borderRadius: '10px', marginBottom: '1.5rem', border: '1px solid #FD7100' }}>
                 <h4 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>{editingId ? `✏️ Edit Product ID: ${editingId}` : '➕ Add New Product Manually'}</h4>
-                <form onSubmit={handleSaveProduct} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.8rem' }}>
+                <form onSubmit={handleSaveProduct} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
                   <div>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', display: 'block', marginBottom: '0.2rem' }}>Product Name *</label>
-                    <input type="text" value={formName} onChange={e => setFormName(e.target.value)} required style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Product Name *</label>
+                    <input type="text" value={formName} onChange={e => setFormName(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
                   </div>
                   <div>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', display: 'block', marginBottom: '0.2rem' }}>Price (JD) *</label>
-                    <input type="number" step="0.01" value={formPrice} onChange={e => setFormPrice(e.target.value)} required style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Price (JD) *</label>
+                    <input type="number" step="0.01" value={formPrice} onChange={e => setFormPrice(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
                   </div>
                   <div>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', display: 'block', marginBottom: '0.2rem' }}>Category *</label>
-                    <select value={formCategory} onChange={e => setFormCategory(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Category *</label>
+                    <select value={formCategory} onChange={e => setFormCategory(e.target.value)} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }}>
                       <option value="Cleaning">Cleaning</option>
                       <option value="Furniture">Furniture</option>
                       <option value="Makeup">Makeup</option>
@@ -611,20 +619,28 @@ export default function AdminDashboard() {
                     </select>
                   </div>
                   <div>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', display: 'block', marginBottom: '0.2rem' }}>Stock</label>
-                    <input type="number" value={formStock} onChange={e => setFormStock(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Stock Quantity</label>
+                    <input type="number" value={formStock} onChange={e => setFormStock(e.target.value)} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
                   </div>
                   <div style={{ gridColumn: 'span 2' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', display: 'block', marginBottom: '0.2rem' }}>Image URL</label>
-                    <input type="text" value={formImage} onChange={e => setFormImage(e.target.value)} placeholder="/icons/... or https://..." style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Main Image URL</label>
+                    <input type="text" value={formImage} onChange={e => setFormImage(e.target.value)} placeholder="/icons/... or https://..." style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Extra Images URLs (Comma-separated for multiple images)</label>
+                    <input type="text" value={formImagesInput} onChange={e => setFormImagesInput(e.target.value)} placeholder="https://img1.com/a.jpg, https://img2.com/b.jpg" style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Description</label>
+                    <textarea value={formDescription} onChange={e => setFormDescription(e.target.value)} rows="2" style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
                   </div>
                   <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <input type="checkbox" id="featuredCheck" checked={formFeatured} onChange={e => setFormFeatured(e.target.checked)} style={{ width: '16px', height: '16px', accentColor: '#FD7100' }} />
-                    <label htmlFor="featuredCheck" style={{ fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>⭐ Pin as Featured Product on Top Banner</label>
+                    <input type="checkbox" id="featuredCheck" checked={formFeatured} onChange={e => setFormFeatured(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: '#FD7100' }} />
+                    <label htmlFor="featuredCheck" style={{ fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}>⭐ Pin as Featured Product on Top Banner</label>
                   </div>
-                  <div style={{ gridColumn: 'span 2', display: 'flex', gap: '0.8rem', marginTop: '0.5rem' }}>
-                    <button type="submit" style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>{editingId ? 'Update Product' : 'Save Product'}</button>
-                    <button type="button" onClick={resetProductForm} style={{ background: '#555', color: '#FFF7EE', border: 'none', padding: '0.6rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>Cancel</button>
+                  <div style={{ gridColumn: 'span 2', display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                    <button type="submit" style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem 1.5rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>{editingId ? 'Update Product' : 'Save Product'}</button>
+                    <button type="button" onClick={resetProductForm} style={{ background: '#555', color: '#FFF7EE', border: 'none', padding: '0.7rem 1.2rem', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
                   </div>
                 </form>
               </div>
@@ -639,7 +655,10 @@ export default function AdminDashboard() {
                       <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: prod.stock <= 3 ? '#ef4444' : '#4ade80' }}>Stock: {prod.stock}</span>
                     </div>
                     <h4 style={{ margin: '0 0 0.3rem 0', fontSize: '0.9rem' }}>{prod.name}</h4>
-                    <p style={{ margin: '0 0 0.6rem 0', fontWeight: 'bold', color: '#FD7100', fontSize: '0.9rem' }}>{Number(prod.price).toFixed(2)} JD</p>
+                    <p style={{ margin: '0 0 0.4rem 0', fontWeight: 'bold', color: '#FD7100', fontSize: '0.9rem' }}>{Number(prod.price).toFixed(2)} JD</p>
+                    {prod.images && prod.images.length > 0 && (
+                      <span style={{ fontSize: '0.7rem', opacity: 0.7, display: 'block', marginBottom: '0.4rem' }}>📷 {prod.images.length + 1} images attached</span>
+                    )}
                   </div>
                   <div style={{ display: 'flex', gap: '0.4rem' }}>
                     <button onClick={() => startEditProduct(prod)} style={{ flex: 1, background: '#3b82f6', color: '#fff', border: 'none', padding: '0.35rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Edit</button>
