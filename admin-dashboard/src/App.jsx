@@ -99,13 +99,12 @@ export default function AdminDashboard() {
     document.body.removeChild(link);
   };
 
-  // --- BULLETPROOF UTF-8 CSV IMPORT PARSER ---
+  // --- SMART HEADER-AWARE CSV IMPORT PARSER ---
   const handleImportInventory = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
-    // Explicitly read as UTF-8 to preserve Arabic characters
     reader.readAsText(file, 'UTF-8');
     
     reader.onload = (event) => {
@@ -116,48 +115,75 @@ export default function AdminDashboard() {
         return;
       }
 
-      const parsedProducts = [];
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-
+      // Helper to parse a single CSV line respecting quotes
+      const parseLine = (line) => {
         const row = [];
         let inQuotes = false;
         let currentField = '';
-        
-        for (let charIdx = 0; charIdx < line.length; charIdx++) {
-          const char = line[charIdx];
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
           if (char === '"') {
-            if (inQuotes && line[charIdx + 1] === '"') {
+            if (inQuotes && line[i + 1] === '"') {
               currentField += '"';
-              charIdx++;
+              i++;
             } else {
               inQuotes = !inQuotes;
             }
           } else if (char === ',' && !inQuotes) {
-            row.push(currentField);
+            row.push(currentField.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
             currentField = '';
           } else {
             currentField += char;
           }
         }
-        row.push(currentField);
+        row.push(currentField.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
+        return row;
+      };
 
-        if (row.length >= 5) {
-          const clean = (val) => (val ? val.trim().replace(/^"|"$/g, '').replace(/""/g, '"') : '');
-          parsedProducts.push({
-            name: clean(row[1]) || 'Unnamed Product',
-            price: parseFloat(clean(row[2])) || 0.0,
-            category: clean(row[3]) || 'Cleaning',
-            stock: parseInt(clean(row[4])) || 10,
-            featured: clean(row[5])?.toUpperCase() === 'TRUE',
-            image: clean(row[6]) || '',
-            description: clean(row[7]) || ''
-          });
-        }
+      // Read header row to find exact column indices dynamically
+      const rawHeaderLine = lines[0].trim();
+      const headers = parseLine(rawHeaderLine).map(h => h.toLowerCase().replace(/[^a-z]/g, ''));
+      
+      const nameIdx = headers.findIndex(h => h.includes('name'));
+      const priceIdx = headers.findIndex(h => h.includes('price'));
+      const catIdx = headers.findIndex(h => h.includes('category') || h.includes('cat'));
+      const stockIdx = headers.findIndex(h => h.includes('stock'));
+      const featIdx = headers.findIndex(h => h.includes('feature'));
+      const imgIdx = headers.findIndex(h => h.includes('image') || h.includes('img'));
+      const descIdx = headers.findIndex(h => h.includes('desc'));
+
+      const parsedProducts = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        const row = parseLine(line);
+        // Filter out empty rows
+        if (row.every(cell => !cell)) continue;
+
+        // Fallback or dynamic lookup based on header indices
+        const getName = () => (nameIdx !== -1 ? row[nameIdx] : row[1]) || 'Unnamed';
+        const getPrice = () => parseFloat(priceIdx !== -1 ? row[priceIdx] : row[2]) || 0.0;
+        const getCat = () => (catIdx !== -1 ? row[catIdx] : row[3]) || 'Cleaning';
+        const getStock = () => parseInt(stockIdx !== -1 ? row[stockIdx] : row[4]) || 10;
+        const getFeat = () => {
+          const val = featIdx !== -1 ? row[featIdx] : row[5];
+          return val ? String(val).toUpperCase() === 'TRUE' : false;
+        };
+        const getImg = () => (imgIdx !== -1 ? row[imgIdx] : row[6]) || '';
+        const getDesc = () => (descIdx !== -1 ? row[descIdx] : row[7]) || '';
+
+        parsedProducts.push({
+          name: getName(),
+          price: getPrice(),
+          category: getCat(),
+          stock: getStock(),
+          featured: getFeat(),
+          image: getImg(),
+          description: getDesc()
+        });
       }
 
-      if (window.confirm(`Successfully parsed ${parsedProducts.length} items from CSV with UTF-8 encoding. Upload them to the database now?`)) {
+      if (window.confirm(`Successfully parsed ${parsedProducts.length} items from CSV (Headers matched dynamically). Upload them to the database now?`)) {
         let successCount = 0;
         parsedProducts.forEach(prod => {
           fetch('https://karamstores.onrender.com/api/products', {
@@ -168,7 +194,7 @@ export default function AdminDashboard() {
             .then(res => {
               if (res.ok) successCount++;
               if (successCount === parsedProducts.length) {
-                alert('Inventory successfully imported with full Arabic support!');
+                alert('Inventory successfully imported!');
                 fetchData();
               }
             })
