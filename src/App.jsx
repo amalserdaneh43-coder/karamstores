@@ -27,7 +27,7 @@ const translations = {
     applyPromo: "Apply",
     totalAmount: "Total Amount:",
     orderNow: "Order Now!",
-    whatsappCheckout: "💬 WhatsApp Support",
+    whatsappCheckout: "💬 Order via WhatsApp",
     customerInfo: "Customer Delivery & Information",
     arabicNameLabel: "Full Name in Arabic (الاسم الكامل بالعربية) *",
     arabicNamePlaceholder: "مثال: محمد أحمد علي",
@@ -71,7 +71,7 @@ const translations = {
     storeInfoTitle: "Store Information & Delivery",
     storeHours: "Working Hours: 9:00 AM - 10:00 PM (Daily)",
     storeLocation: "Location: Amman, Jordan (Cash on Delivery Available)",
-    storeSupport: "Customer Service: +962 7 0000 0000"
+    storeSupport: "Customer Service: 0781794172"
   },
   ar: {
     storeName: "كرم ستورز",
@@ -98,7 +98,7 @@ const translations = {
     applyPromo: "تطبيق",
     totalAmount: "المبلغ الإجمالي:",
     orderNow: "اطلب الان!",
-    whatsappCheckout: "💬 دعم واتساب",
+    whatsappCheckout: "💬 اطلب عبر واتساب",
     customerInfo: "معلومات العميل والتوصيل",
     arabicNameLabel: "الاسم الكامل بالعربية *",
     arabicNamePlaceholder: "مثال: محمد أحمد علي",
@@ -142,7 +142,7 @@ const translations = {
     storeInfoTitle: "معلومات المتجر والتوصيل",
     storeHours: "ساعات العمل: 9:00 صباحاً - 10:00 مساءً (يومياً)",
     storeLocation: "الموقع: عمان، الأردن (متوفر الدفع عند الاستلام)",
-    storeSupport: "خدمة العملاء: +962 7 0000 0000"
+    storeSupport: "خدمة العملاء: 0781794172"
   }
 };
 
@@ -157,7 +157,7 @@ export default function StoreApp() {
   const [submittedSearchQuery, setSubmittedSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false); 
   const [selectedCategoryView, setSelectedCategoryView] = useState(null);
-  const [isMoreCatalogOpen, setIsMoreCatalogOpen] = useState(false); // Full store explorer for "More"
+  const [isMoreCatalogOpen, setIsMoreCatalogOpen] = useState(false);
   const [selectedFilterCategory, setSelectedFilterCategory] = useState('All');
 
   const [lang, setLang] = useState('ar'); 
@@ -287,12 +287,14 @@ export default function StoreApp() {
 
   const handleWhatsAppCheckout = () => {
     if (cart.length === 0) return;
-    let text = `New Order from Karam Stores:\n`;
-    cart.forEach(i => { text += `- ${i.name} (Qty: ${i.quantity}) - ${ (i.price * i.quantity).toFixed(2) } JD\n`; });
-    text += `Subtotal: ${ cartSubtotal.toFixed(2) } JD\nDelivery Fee: ${ deliveryFee.toFixed(2) } JD`;
-    if (discountValue > 0) text += `\nDiscount (${appliedPromoCode}): -${ discountValue.toFixed(2) } JD`;
-    text += `\nTotal: ${ grandTotal.toFixed(2) } JD`;
-    window.open(`https://wa.me/962000000000?text=${encodeURIComponent(text)}`, '_blank');
+    let text = `مرحباً، أود طلب المنتجات التالية من كرم ستورز:\n`;
+    cart.forEach(i => { text += `- ${i.name} (الكمية: ${i.quantity}) - ${ (i.price * i.quantity).toFixed(2) } JD\n`; });
+    text += `المجموع الفرعي: ${ cartSubtotal.toFixed(2) } JD\nرسوم التوصيل: ${ deliveryFee.toFixed(2) } JD`;
+    if (discountValue > 0) text += `\nالخصم (${appliedPromoCode}): -${ discountValue.toFixed(2) } JD`;
+    text += `\nالمجموع الإجمالي: ${ grandTotal.toFixed(2) } JD`;
+    
+    // Using store number 0781794172 formatted for WhatsApp (Jordan country code +962)
+    window.open(`https://wa.me/962781794172?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const handleSearchSubmit = (e) => {
@@ -750,7 +752,7 @@ export default function StoreApp() {
             </div>
           </div>
 
-          {/* Clean Store Information Section Added to Homepage */}
+          {/* Clean Store Information Section Added to Homepage with Store Number */}
           <div style={{ width: '92%', maxWidth: '1000px', margin: '2.5rem auto 1rem auto', background: '#2D2C2C', border: '1px solid rgba(255,247,238,0.15)', borderRadius: '12px', padding: '1.2rem 1.5rem' }}>
             <h4 style={{ margin: '0 0 0.6rem 0', fontSize: '1rem', color: '#FD7100', fontWeight: '700' }}>{t.storeInfoTitle}</h4>
             <div style={{ fontSize: '0.85rem', opacity: 0.85, display: 'flex', flexDirection: 'column', gap: '0.3rem', lineHeight: '1.5' }}>
