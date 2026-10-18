@@ -99,12 +99,15 @@ export default function AdminDashboard() {
     document.body.removeChild(link);
   };
 
-  // --- BULLETPROOF CSV IMPORT PARSER ---
+  // --- BULLETPROOF UTF-8 CSV IMPORT PARSER ---
   const handleImportInventory = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
+    // Explicitly read as UTF-8 to preserve Arabic characters
+    reader.readAsText(file, 'UTF-8');
+    
     reader.onload = (event) => {
       const text = event.target.result;
       const lines = text.split(/\r\n|\n/);
@@ -114,12 +117,10 @@ export default function AdminDashboard() {
       }
 
       const parsedProducts = [];
-      // Skip header row (i = 1)
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
 
-        // Advanced CSV line parser respecting quotes and commas inside text
         const row = [];
         let inQuotes = false;
         let currentField = '';
@@ -127,7 +128,7 @@ export default function AdminDashboard() {
         for (let charIdx = 0; charIdx < line.length; charIdx++) {
           const char = line[charIdx];
           if (char === '"') {
-            if (inQuotes && line[charIdx + '"'] === '"') {
+            if (inQuotes && line[charIdx + 1] === '"') {
               currentField += '"';
               charIdx++;
             } else {
@@ -142,7 +143,6 @@ export default function AdminDashboard() {
         }
         row.push(currentField);
 
-        // Map columns: [id, name, price, category, stock, featured, image, description]
         if (row.length >= 5) {
           const clean = (val) => (val ? val.trim().replace(/^"|"$/g, '').replace(/""/g, '"') : '');
           parsedProducts.push({
@@ -157,7 +157,7 @@ export default function AdminDashboard() {
         }
       }
 
-      if (window.confirm(`Successfully parsed ${parsedProducts.length} items from CSV. Upload them to the database now?`)) {
+      if (window.confirm(`Successfully parsed ${parsedProducts.length} items from CSV with UTF-8 encoding. Upload them to the database now?`)) {
         let successCount = 0;
         parsedProducts.forEach(prod => {
           fetch('https://karamstores.onrender.com/api/products', {
@@ -168,7 +168,7 @@ export default function AdminDashboard() {
             .then(res => {
               if (res.ok) successCount++;
               if (successCount === parsedProducts.length) {
-                alert('Inventory successfully imported!');
+                alert('Inventory successfully imported with full Arabic support!');
                 fetchData();
               }
             })
@@ -176,7 +176,6 @@ export default function AdminDashboard() {
         });
       }
     };
-    reader.readAsText(file, 'UTF-8');
   };
 
   // --- PRODUCT FORM SAVING ---
