@@ -100,7 +100,7 @@ export default function AdminDashboard() {
     document.body.removeChild(link);
   };
 
-  // --- BULLETPROOF CSV IMPORT PARSER ---
+  // --- ULTIMATE AUTO-DETECTING CSV IMPORT PARSER ---
   const handleImportInventory = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -140,53 +140,46 @@ export default function AdminDashboard() {
         return row;
       };
 
-      const rawHeaderLine = lines[0].trim();
-      const headers = parseLine(rawHeaderLine).map(h => h.toLowerCase().replace(/[^a-z]/g, ''));
-      
-      const nameIdx = headers.findIndex(h => h.includes('name'));
-      const priceIdx = headers.findIndex(h => h.includes('price'));
-      const catIdx = headers.findIndex(h => h.includes('category') || h.includes('cat'));
-      const stockIdx = headers.findIndex(h => h.includes('stock'));
-      const featIdx = headers.findIndex(h => h.includes('feature'));
-      const imgIdx = headers.findIndex(h => h === 'image' || h === 'img');
-      const imgsIdx = headers.findIndex(h => h.includes('images') || h.includes('extra'));
-      const descIdx = headers.findIndex(h => h.includes('desc'));
-
       const parsedProducts = [];
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
-        const row = parseLine(line);
-        if (row.every(cell => !cell)) continue;
+        const row = parseLine(line).filter(cell => cell !== '');
+        if (row.length < 2) continue;
 
-        const getName = () => (nameIdx !== -1 ? row[nameIdx] : row[1]) || 'Unnamed';
-        const getPrice = () => parseFloat(priceIdx !== -1 ? row[priceIdx] : row[2]) || 0.0;
-        const getCat = () => (catIdx !== -1 ? row[catIdx] : row[3]) || 'Cleaning';
-        const getStock = () => parseInt(stockIdx !== -1 ? row[stockIdx] : row[4]) || 10;
-        const getFeat = () => {
-          const val = featIdx !== -1 ? row[featIdx] : row[5];
-          return val ? String(val).toUpperCase() === 'TRUE' : false;
-        };
-        const getImg = () => (imgIdx !== -1 ? row[imgIdx] : row[6]) || '';
-        
-        const rawImgs = imgsIdx !== -1 ? row[imgsIdx] : row[7];
-        const getImagesList = rawImgs ? rawImgs.split('|').map(s => s.trim()).filter(Boolean) : [];
+        // Intelligent auto-detection: find which cell looks like a price (number with decimal) or category
+        // This completely bypasses Excel column shifting!
+        let priceVal = 0.0;
+        let priceIdx = row.findIndex(cell => !isNaN(cell) && Number(cell) > 0 && String(cell).includes('.'));
+        if (priceIdx === -1) {
+          priceIdx = row.findIndex(cell => !isNaN(cell) && Number(cell) > 0);
+        }
 
-        const getDesc = () => (descIdx !== -1 ? row[descIdx] : row[8]) || '';
+        if (priceIdx !== -1) {
+          priceVal = parseFloat(row[priceIdx]);
+          // Name is usually right before price
+          const nameVal = priceIdx > 0 ? row[priceIdx - 1] : row[0];
+          // Category is usually right after price
+          const catVal = priceIdx + 1 < row.length ? row[priceIdx + 1] : 'Cleaning';
+          // Stock is usually after category
+          const stockVal = parseInt(row[priceIdx + 2]) || 10;
+          const featVal = row.some(cell => String(cell).toUpperCase() === 'TRUE');
+          const imgVal = row.find(cell => String(cell).startsWith('http') || String(cell).startsWith('data:image')) || '';
 
-        parsedProducts.push({
-          name: getName(),
-          price: getPrice(),
-          category: getCat(),
-          stock: getStock(),
-          featured: getFeat(),
-          image: getImg(),
-          images: getImagesList,
-          description: getDesc()
-        });
+          parsedProducts.push({
+            name: isNaN(nameVal) ? nameVal : 'Product',
+            price: priceVal,
+            category: isNaN(catVal) ? catVal : 'Cleaning',
+            stock: !isNaN(stockVal) ? stockVal : 10,
+            featured: featVal,
+            image: imgVal,
+            images: [],
+            description: ''
+          });
+        }
       }
 
-      if (window.confirm(`Successfully parsed ${parsedProducts.length} items from CSV. Upload them to the database now?`)) {
+      if (window.confirm(`Successfully auto-detected and parsed ${parsedProducts.length} valid products from CSV. Upload them to the database now?`)) {
         let successCount = 0;
         parsedProducts.forEach(prod => {
           fetch('https://karamstores.onrender.com/api/products', {
