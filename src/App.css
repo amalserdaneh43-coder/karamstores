@@ -10,11 +10,15 @@ body {
   font-family: 'Plus Jakarta Sans', 'Cairo', system-ui, sans-serif;
   background-color: #242323;
   color: #FFF7EE;
+  text-align: left;
 }
 
+/* Store Layout & Containers */
 .store-container {
   min-height: 100vh;
   padding-bottom: 6rem;
+  background-color: #242323;
+  color: #FFF7EE;
   box-sizing: border-box;
 }
 
@@ -41,6 +45,19 @@ body {
   border-color: #FD7100;
 }
 
+.product-title {
+  margin: 0.4rem 0 0.2rem 0;
+  font-size: 0.9rem;
+  color: #FFF7EE;
+  font-weight: 700;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Category Circles */
 .cat-circle {
   width: 65px;
   height: 65px;
@@ -65,18 +82,7 @@ body {
   border-color: #FD7100;
 }
 
-.product-title {
-  margin: 0.4rem 0 0.2rem 0;
-  font-size: 0.9rem;
-  color: #FFF7EE;
-  font-weight: 700;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
+/* Buttons */
 .btn-primary {
   background: #FD7100;
   color: #FFF7EE;
@@ -94,6 +100,29 @@ body {
   background: #e06300;
 }
 
+.btn-secondary {
+  background: #242323;
+  color: #FFF7EE;
+  border: 1px solid rgba(255,247,238,0.3);
+  padding: 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.85rem;
+}
+
+.btn-whatsapp {
+  background: #25d366;
+  color: #fff;
+  border: none;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+/* Toast Notifications */
 .toast-notification {
   position: fixed;
   top: 16px;
@@ -115,6 +144,7 @@ body {
   backdrop-filter: blur(8px);
 }
 
+/* Navbar & Header */
 .navbar {
   display: flex;
   justify-content: space-between;
@@ -143,6 +173,24 @@ body {
   z-index: 900;
 }
 
+.bottom-nav-btn {
+  background: transparent;
+  border: none;
+  color: #FFF7EE;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.bottom-nav-icon {
+  font-size: 1.2rem;
+  margin-bottom: 2px;
+}
+
+/* Modals & Overlays */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -168,4 +216,79 @@ body {
   overflow-y: auto;
   box-shadow: 0 20px 40px rgba(0,0,0,0.6);
   color: #FFF7EE;
+}
+
+.modal-bottom-sheet {
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-width: 100%;
+  border-top: 1px solid rgba(255,247,238,0.25);
+  padding: 1.5rem 1.2rem 2rem 1.2rem;
+}
+
+/* Forms & Inputs */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.form-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #FFF7EE;
+  opacity: 0.9;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.65rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255,247,238,0.3);
+  background: #242323;
+  color: #FFF7EE;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: #FD7100;
+}
+
+/* Grids & Spacing */
+.grid-2col {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.8rem;
+}
+
+.grid-3col {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  justify-content: center;
+}
+
+.badge-category {
+  background: rgba(253, 113, 0, 0.15);
+  color: #FD7100;
+  border: 1px solid rgba(253, 113, 0, 0.4);
+  padding: 0.15rem 0.4rem;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  display: inline-block;
+}
+
+.back-button {
+  background: transparent;
+  border: none;
+  color: #FFF7EE;
+  font-weight: bold;
+  cursor: pointer;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  opacity: 0.8;
+  padding: 0;
 }

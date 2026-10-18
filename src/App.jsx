@@ -426,7 +426,8 @@ export default function StoreApp() {
               value={catalogSearch}
               autoFocus
               onChange={e => setCatalogSearch(e.target.value)}
-              style={{ width: '100%', padding: '0.7rem 1rem 0.7rem 2.5rem', borderRadius: '10px', border: '1px solid #FD7100', background: '#242323', color: '#FFF7EE', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }}
+              className="form-input"
+              style={{ paddingLeft: isRtl ? '0.9rem' : '2.5rem', paddingRight: isRtl ? '2.5rem' : '0.9rem' }}
             />
             <span style={{ position: 'absolute', left: isRtl ? 'auto' : '0.8rem', right: isRtl ? '0.8rem' : 'auto', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }}>🔍</span>
 
@@ -454,7 +455,7 @@ export default function StoreApp() {
       {/* VIEW: PRODUCT DETAILS */}
       {selectedProduct ? (
         <div style={{ width: '92%', maxWidth: '800px', margin: '1.5rem auto' }}>
-          <button onClick={() => setSelectedProduct(null)} style={{ background: 'transparent', border: 'none', color: '#FFF7EE', fontWeight: 'bold', cursor: 'pointer', marginBottom: '1rem', fontSize: '0.9rem', opacity: 0.8 }}>
+          <button onClick={() => setSelectedProduct(null)} className="back-button">
             {t.backToCatalog}
           </button>
 
@@ -476,9 +477,7 @@ export default function StoreApp() {
             </div>
 
             <div>
-              <span style={{ background: 'rgba(253, 113, 0, 0.15)', color: '#FD7100', border: '1px solid rgba(253, 113, 0, 0.4)', padding: '0.2rem 0.6rem', borderRadius: '10px', fontSize: '0.7rem', fontWeight: '700' }}>
-                {selectedProduct.category || 'General'}
-              </span>
+              <span className="badge-category">{selectedProduct.category || 'General'}</span>
               <h1 style={{ margin: '0.5rem 0 0.4rem 0', fontSize: '1.5rem', color: '#FFF7EE', fontWeight: '800' }}>{selectedProduct.name}</h1>
               <p style={{ fontSize: '1.3rem', fontWeight: '800', color: '#FD7100', margin: '0 0 1rem 0' }}>${Number(selectedProduct.price).toFixed(2)}</p>
               
@@ -488,7 +487,7 @@ export default function StoreApp() {
 
               {selectedProduct.sizes && selectedProduct.sizes.length > 0 && (
                 <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#FFF7EE', marginBottom: '0.4rem', opacity: 0.9 }}>{t.selectSize}</label>
+                  <label className="form-label" style={{ display: 'block', marginBottom: '0.4rem' }}>{t.selectSize}</label>
                   <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                     {selectedProduct.sizes.map(size => (
                       <button key={size} onClick={() => setSelectedSize(size)} style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', border: selectedSize === size ? '2px solid #FD7100' : '1px solid rgba(255,247,238,0.3)', background: selectedSize === size ? '#FD7100' : '#242323', color: '#FFF7EE', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer' }}>
@@ -501,7 +500,7 @@ export default function StoreApp() {
 
               {selectedProduct.colors && selectedProduct.colors.length > 0 && (
                 <div style={{ marginBottom: '1.2rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#FFF7EE', marginBottom: '0.4rem', opacity: 0.9 }}>{t.selectColor}</label>
+                  <label className="form-label" style={{ display: 'block', marginBottom: '0.4rem' }}>{t.selectColor}</label>
                   <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                     {selectedProduct.colors.map(color => (
                       <button key={color} onClick={() => setSelectedColor(color)} style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', border: selectedColor === color ? '2px solid #FD7100' : '1px solid rgba(255,247,238,0.3)', background: selectedColor === color ? '#FD7100' : '#242323', color: '#FFF7EE', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer' }}>
@@ -521,7 +520,7 @@ export default function StoreApp() {
           {similarProducts.length > 0 && (
             <div style={{ marginTop: '2rem' }}>
               <h3 style={{ fontSize: '1.1rem', color: '#FFF7EE', marginBottom: '1rem', fontWeight: '700' }}>{t.similarOptions} {selectedProduct.category}</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.8rem' }}>
+              <div className="grid-2col">
                 {similarProducts.map(simProd => (
                   <div key={simProd.id || simProd._id} onClick={() => openProductDetails(simProd)} className="store-card">
                     <div>
@@ -543,11 +542,11 @@ export default function StoreApp() {
       ) : submittedSearchQuery ? (
         /* VIEW: SEARCH RESULTS */
         <div style={{ width: '92%', maxWidth: '1000px', margin: '1.5rem auto' }}>
-          <button onClick={() => setSubmittedSearchQuery('')} style={{ background: 'transparent', border: 'none', color: '#FFF7EE', fontWeight: 'bold', cursor: 'pointer', marginBottom: '1rem', fontSize: '0.9rem', opacity: 0.8 }}>
+          <button onClick={() => setSubmittedSearchQuery('')} className="back-button">
             {t.backToCatalog}
           </button>
           <h2 style={{ fontSize: '1.4rem', color: '#FFF7EE', marginBottom: '1.2rem', fontWeight: '700' }}>{t.searchResults} "{submittedSearchQuery}"</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.8rem' }}>
+          <div className="grid-2col">
             {sortedSearchResults.length === 0 ? (
               <p style={{ color: '#FFF7EE', opacity: 0.6, padding: '2rem 0', gridColumn: 'span 2', textAlign: 'center' }}>{lang === 'ar' ? 'لم يتم العثور على منتجات مطابقة لبحثك.' : 'No matching products found.'}</p>
             ) : (
@@ -557,7 +556,7 @@ export default function StoreApp() {
                     <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.6rem', background: '#242323' }}>
                       <img src={product.image || 'https://via.placeholder.com/260'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
-                    <span style={{ background: 'rgba(253, 113, 0, 0.15)', color: '#FD7100', border: '1px solid rgba(253, 113, 0, 0.4)', padding: '0.15rem 0.4rem', borderRadius: '8px', fontSize: '0.65rem', fontWeight: '700' }}>{product.category || 'General'}</span>
+                    <span className="badge-category">{product.category || 'General'}</span>
                     <h4 className="product-title">{product.name}</h4>
                     <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>${Number(product.price).toFixed(2)}</p>
                   </div>
@@ -570,9 +569,9 @@ export default function StoreApp() {
       ) : selectedCategoryView ? (
         /* VIEW: CATEGORY PRODUCTS */
         <div style={{ width: '92%', maxWidth: '1000px', margin: '1.5rem auto' }}>
-          <button onClick={() => setSelectedCategoryView(null)} style={{ background: 'transparent', border: 'none', color: '#FFF7EE', fontWeight: 'bold', cursor: 'pointer', marginBottom: '1rem', fontSize: '0.9rem', opacity: 0.8 }}>{t.backToCatalog}</button>
+          <button onClick={() => setSelectedCategoryView(null)} className="back-button">{t.backToCatalog}</button>
           <h2 style={{ fontSize: '1.4rem', color: '#FFF7EE', marginBottom: '1.2rem', fontWeight: '700' }}>{t.categoryCatalog}: {selectedCategoryView}</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.8rem' }}>
+          <div className="grid-2col">
             {categoryViewProducts.length === 0 ? (
               <p style={{ color: '#FFF7EE', opacity: 0.6, padding: '2rem 0', gridColumn: 'span 2', textAlign: 'center' }}>{lang === 'ar' ? 'لا توجد منتجات في هذه الفئة حالياً.' : 'No products found in this category.'}</p>
             ) : (
@@ -582,7 +581,7 @@ export default function StoreApp() {
                     <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.6rem', background: '#242323' }}>
                       <img src={product.image || 'https://via.placeholder.com/260'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
-                    <span style={{ background: 'rgba(253, 113, 0, 0.15)', color: '#FD7100', border: '1px solid rgba(253, 113, 0, 0.4)', padding: '0.15rem 0.4rem', borderRadius: '8px', fontSize: '0.65rem', fontWeight: '700' }}>{product.category || 'General'}</span>
+                    <span className="badge-category">{product.category || 'General'}</span>
                     <h4 className="product-title">{product.name}</h4>
                     <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>${Number(product.price).toFixed(2)}</p>
                   </div>
@@ -621,7 +620,7 @@ export default function StoreApp() {
 
           {/* 3x2 Grid Categories */}
           <div style={{ width: '92%', maxWidth: '600px', margin: '0 auto 2rem auto' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', justifyContent: 'center' }}>
+            <div className="grid-3col">
               {categoriesList.map((cat, index) => (
                 <div key={index} onClick={() => { setSelectedCategoryView(cat.key === 'More' ? null : cat.key); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', textAlign: 'center' }}>
                   <div className="cat-circle">
@@ -643,14 +642,14 @@ export default function StoreApp() {
 
             <h3 style={{ marginBottom: '1rem', fontSize: '1.2rem', color: '#FFF7EE', fontWeight: '700' }}>{t.completeCatalog}</h3>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.8rem' }}>
+            <div className="grid-2col">
               {products.map(product => (
                 <div key={product.id || product._id} onClick={() => openProductDetails(product)} className="store-card">
                   <div>
                     <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.6rem', background: '#242323' }}>
                       <img src={product.image || 'https://via.placeholder.com/260'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
-                    <span style={{ background: 'rgba(253, 113, 0, 0.15)', color: '#FD7100', border: '1px solid rgba(253, 113, 0, 0.4)', padding: '0.15rem 0.4rem', borderRadius: '8px', fontSize: '0.65rem', fontWeight: '700' }}>{product.category || 'General'}</span>
+                    <span className="badge-category">{product.category || 'General'}</span>
                     <h4 className="product-title">{product.name}</h4>
                     <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>${Number(product.price).toFixed(2)}</p>
                   </div>
@@ -664,24 +663,24 @@ export default function StoreApp() {
 
       {/* MOBILE BOTTOM APP NAVIGATION BAR */}
       <div className="bottom-nav">
-        <button onClick={() => { setSelectedProduct(null); setSelectedCategoryView(null); setSubmittedSearchQuery(''); setIsSearchOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ background: 'transparent', border: 'none', color: '#FFF7EE', display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', fontSize: '0.7rem', fontWeight: '600' }}>
-          <span style={{ fontSize: '1.2rem', marginBottom: '2px' }}>🏠</span>{t.navHome}
+        <button onClick={() => { setSelectedProduct(null); setSelectedCategoryView(null); setSubmittedSearchQuery(''); setIsSearchOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="bottom-nav-btn">
+          <span className="bottom-nav-icon">🏠</span>{t.navHome}
         </button>
-        <button onClick={() => setIsSearchOpen(!isSearchOpen)} style={{ background: 'transparent', border: 'none', color: '#FFF7EE', display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', fontSize: '0.7rem', fontWeight: '600' }}>
-          <span style={{ fontSize: '1.2rem', marginBottom: '2px' }}>🔍</span>{t.navSearch}
+        <button onClick={() => setIsSearchOpen(!isSearchOpen)} className="bottom-nav-btn">
+          <span className="bottom-nav-icon">🔍</span>{t.navSearch}
         </button>
-        <button onClick={() => setIsCartOpen(true)} style={{ background: 'transparent', border: 'none', color: '#FFF7EE', display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', fontSize: '0.7rem', fontWeight: '600' }}>
-          <span style={{ fontSize: '1.2rem', marginBottom: '2px' }}>🛒</span>{t.navCart}
+        <button onClick={() => setIsCartOpen(true)} className="bottom-nav-btn">
+          <span className="bottom-nav-icon">🛒</span>{t.navCart}
         </button>
-        <button onClick={() => setIsOrderHistoryOpen(true)} style={{ background: 'transparent', border: 'none', color: '#FFF7EE', display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', fontSize: '0.7rem', fontWeight: '600' }}>
-          <span style={{ fontSize: '1.2rem', marginBottom: '2px' }}>📦</span>{t.navOrders}
+        <button onClick={() => setIsOrderHistoryOpen(true)} className="bottom-nav-btn">
+          <span className="bottom-nav-icon">📦</span>{t.navOrders}
         </button>
       </div>
 
       {/* CART MODAL WINDOW */}
       {isCartOpen && (
         <div className="modal-overlay" style={{ alignItems: 'flex-end' }}>
-          <div dir={isRtl ? 'rtl' : 'ltr'} className="modal-content" style={{ borderRadius: '20px 20px 0 0', width: '100%', maxWidth: '100%', borderTop: '1px solid rgba(255,247,238,0.25)' }}>
+          <div dir={isRtl ? 'rtl' : 'ltr'} className="modal-content modal-bottom-sheet">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,247,238,0.2)', paddingBottom: '0.8rem', marginBottom: '1rem' }}>
               <h3 style={{ margin: 0, color: '#FFF7EE', fontSize: '1.1rem', fontWeight: '700' }}>{t.cartReview}</h3>
               <button onClick={() => setIsCartOpen(false)} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#FFF7EE' }}>✕</button>
@@ -738,7 +737,7 @@ export default function StoreApp() {
                   )}
 
                   <div style={{ display: 'flex', gap: '0.4rem', margin: '0.6rem 0' }}>
-                    <input type="text" placeholder={t.discountLabel} value={promoInput} onChange={e => setPromoInput(e.target.value)} style={{ flex: 1, padding: '0.4rem 0.5rem', borderRadius: '6px', border: '1px solid rgba(255,247,238,0.3)', background: '#242323', color: '#FFF7EE', textTransform: 'uppercase', fontSize: '0.8rem' }} />
+                    <input type="text" placeholder={t.discountLabel} value={promoInput} onChange={e => setPromoInput(e.target.value)} className="form-input" style={{ flex: 1, textTransform: 'uppercase', padding: '0.4rem 0.5rem', fontSize: '0.8rem' }} />
                     <button onClick={handleApplyDiscount} className="btn-primary" style={{ padding: '0.4rem 0.7rem', fontSize: '0.8rem' }}>{t.applyPromo}</button>
                   </div>
 
@@ -750,7 +749,7 @@ export default function StoreApp() {
 
                 <div style={{ display: 'flex', gap: '0.6rem' }}>
                   <button onClick={() => { setIsCartOpen(false); setIsCheckoutOpen(true); }} className="btn-primary" style={{ flex: 1, padding: '0.8rem', fontSize: '0.9rem' }}>{t.orderNow}</button>
-                  <button onClick={handleWhatsAppCheckout} style={{ background: '#25d366', color: '#fff', border: 'none', padding: '0.8rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '0.9rem' }}>{t.whatsappCheckout}</button>
+                  <button onClick={handleWhatsAppCheckout} className="btn-whatsapp">{t.whatsappCheckout}</button>
                 </div>
               </div>
             )}
@@ -768,27 +767,27 @@ export default function StoreApp() {
             </div>
 
             <form onSubmit={handleExecuteOrderSubmission} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#FFF7EE', marginBottom: '0.3rem', opacity: 0.9 }}>{t.arabicNameLabel}</label>
-                <input type="text" placeholder={t.arabicNamePlaceholder} value={arabicName} onChange={e => setArabicName(e.target.value)} required dir="rtl" style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid rgba(255,247,238,0.3)', background: '#242323', color: '#FFF7EE', fontSize: '0.9rem', textAlign: 'right' }} />
+              <div className="form-group">
+                <label className="form-label">{t.arabicNameLabel}</label>
+                <input type="text" placeholder={t.arabicNamePlaceholder} value={arabicName} onChange={e => setArabicName(e.target.value)} required dir="rtl" className="form-input" style={{ textAlign: 'right' }} />
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#FFF7EE', marginBottom: '0.3rem', opacity: 0.9 }}>{t.phoneLabel}</label>
-                <input type="tel" placeholder={t.phonePlaceholder} maxLength="10" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} required style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid rgba(255,247,238,0.3)', background: '#242323', color: '#FFF7EE', fontSize: '0.9rem' }} />
+              <div className="form-group">
+                <label className="form-label">{t.phoneLabel}</label>
+                <input type="tel" placeholder={t.phonePlaceholder} maxLength="10" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} required className="form-input" />
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#FFF7EE', marginBottom: '0.3rem', opacity: 0.9 }}>{t.manualAddressLabel} <span style={{ color: '#f87171' }}>{t.obligatory}</span></label>
-                <textarea placeholder={t.manualAddressPlaceholder} value={manualAddress} onChange={e => setManualAddress(e.target.value)} rows="3" required style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid rgba(255,247,238,0.3)', background: '#242323', color: '#FFF7EE', fontSize: '0.9rem' }} />
+              <div className="form-group">
+                <label className="form-label">{t.manualAddressLabel} <span style={{ color: '#f87171' }}>{t.obligatory}</span></label>
+                <textarea placeholder={t.manualAddressPlaceholder} value={manualAddress} onChange={e => setManualAddress(e.target.value)} rows="3" required className="form-input" />
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '700', color: '#FFF7EE', marginBottom: '0.3rem', opacity: 0.9 }}>{t.paymentMethod}</label>
-                <select value={paymentMethod} disabled style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid rgba(255,247,238,0.3)', background: '#242323', color: '#FFF7EE', opacity: 0.7, fontWeight: 'bold', fontSize: '0.9rem' }}>
+              <div className="form-group">
+                <label className="form-label">{t.paymentMethod}</label>
+                <select value={paymentMethod} disabled className="form-input" style={{ opacity: 0.7, fontWeight: 'bold' }}>
                   <option value="Cash">{t.cashOnDelivery}</option>
                 </select>
               </div>
 
               <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.8rem' }}>
-                <button type="button" onClick={() => setIsCheckoutOpen(false)} style={{ flex: 1, background: '#242323', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}>{t.backToCart}</button>
+                <button type="button" onClick={() => setIsCheckoutOpen(false)} className="btn-secondary" style={{ flex: 1 }}>{t.backToCart}</button>
                 <button type="submit" className="btn-primary" style={{ flex: 1, padding: '0.75rem', fontSize: '0.85rem' }}>{t.reviewOrder}</button>
               </div>
             </form>
