@@ -100,7 +100,7 @@ export default function AdminDashboard() {
     document.body.removeChild(link);
   };
 
-  // --- ULTIMATE AUTO-DETECTING CSV IMPORT PARSER ---
+// --- ROBUST & CLEAN CSV IMPORT PARSER ---
   const handleImportInventory = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -141,45 +141,41 @@ export default function AdminDashboard() {
       };
 
       const parsedProducts = [];
+      // Skip header (i = 1)
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
         const row = parseLine(line).filter(cell => cell !== '');
         if (row.length < 2) continue;
 
-        // Intelligent auto-detection: find which cell looks like a price (number with decimal) or category
-        // This completely bypasses Excel column shifting!
-        let priceVal = 0.0;
-        let priceIdx = row.findIndex(cell => !isNaN(cell) && Number(cell) > 0 && String(cell).includes('.'));
-        if (priceIdx === -1) {
-          priceIdx = row.findIndex(cell => !isNaN(cell) && Number(cell) > 0);
-        }
+        // Find the price (a number with digits) in the row
+        // In your export, price is typically around index 2 or 3
+        let priceIndex = row.findIndex(cell => !isNaN(cell) && Number(cell) > 0);
+        if (priceIndex === -1) continue;
 
-        if (priceIdx !== -1) {
-          priceVal = parseFloat(row[priceIdx]);
-          // Name is usually right before price
-          const nameVal = priceIdx > 0 ? row[priceIdx - 1] : row[0];
-          // Category is usually right after price
-          const catVal = priceIdx + 1 < row.length ? row[priceIdx + 1] : 'Cleaning';
-          // Stock is usually after category
-          const stockVal = parseInt(row[priceIdx + 2]) || 10;
-          const featVal = row.some(cell => String(cell).toUpperCase() === 'TRUE');
-          const imgVal = row.find(cell => String(cell).startsWith('http') || String(cell).startsWith('data:image')) || '';
+        const price = parseFloat(row[priceIndex]) || 0.0;
+        // Name is right before price
+        const name = priceIndex > 0 ? row[priceIndex - 1] : 'Product';
+        // Category is right after price
+        const category = priceIndex + 1 < row.length ? row[priceIndex + 1] : 'Cleaning';
+        // Stock is after category
+        const stock = parseInt(row[priceIndex + 2]) || 10;
+        const featured = row.some(cell => String(cell).toUpperCase() === 'TRUE');
+        const image = row.find(cell => String(cell).startsWith('http') || String(cell).startsWith('data:image')) || '';
 
-          parsedProducts.push({
-            name: isNaN(nameVal) ? nameVal : 'Product',
-            price: priceVal,
-            category: isNaN(catVal) ? catVal : 'Cleaning',
-            stock: !isNaN(stockVal) ? stockVal : 10,
-            featured: featVal,
-            image: imgVal,
-            images: [],
-            description: ''
-          });
-        }
+        parsedProducts.push({
+          name: isNaN(name) ? name : 'Product',
+          price: price,
+          category: isNaN(category) ? category : 'Cleaning',
+          stock: !isNaN(stock) ? stock : 10,
+          featured: featured,
+          image: image,
+          images: [],
+          description: ''
+        });
       }
 
-      if (window.confirm(`Successfully auto-detected and parsed ${parsedProducts.length} valid products from CSV. Upload them to the database now?`)) {
+      if (window.confirm(`Successfully parsed ${parsedProducts.length} valid products from CSV. Upload them to the database now?`)) {
         let successCount = 0;
         parsedProducts.forEach(prod => {
           fetch('https://karamstores.onrender.com/api/products', {
