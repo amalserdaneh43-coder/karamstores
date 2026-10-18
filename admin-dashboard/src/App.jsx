@@ -60,7 +60,7 @@ export default function AdminDashboard() {
     fetchData();
   }, []);
 
-  // --- CLEAN CSV EXPORT WITH UTF-8 BOM FOR EXCEL ---
+ // --- CLEAN CSV EXPORT (FIXES ARABIC ENCODING & SCIENTIFIC NOTATION IDs) ---
   const handleExportInventory = () => {
     const headers = ['id', 'name', 'price', 'category', 'stock', 'featured', 'image', 'description'];
     const csvRows = [headers.join(',')];
@@ -72,8 +72,11 @@ export default function AdminDashboard() {
         return `"${str}"`;
       };
 
+      // Force Excel to format ID as raw text so it never shows scientific notation (E+12)
+      const formattedId = `"\t${p.id || p._id || ''}"`;
+
       const row = [
-        escapeCell(p.id || p._id || ''),
+        formattedId,
         escapeCell(p.name || ''),
         escapeCell(p.price || 0),
         escapeCell(p.category || 'Cleaning'),
@@ -85,7 +88,7 @@ export default function AdminDashboard() {
       csvRows.push(row.join(','));
     });
 
-    // Add \uFEFF UTF-8 BOM so Excel opens Arabic and formatting correctly without shifting
+    // \uFEFF forces Excel on Windows to read the CSV as UTF-8 Arabic encoding
     const blob = new Blob(['\uFEFF' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
