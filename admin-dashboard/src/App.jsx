@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
-export default function AdminDashboard() {
+function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('orders');
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -100,7 +100,7 @@ export default function AdminDashboard() {
     document.body.removeChild(link);
   };
 
-// --- ROBUST & CLEAN CSV IMPORT PARSER ---
+  // --- ROBUST & CLEAN CSV IMPORT PARSER ---
   const handleImportInventory = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -148,17 +148,12 @@ export default function AdminDashboard() {
         const row = parseLine(line).filter(cell => cell !== '');
         if (row.length < 2) continue;
 
-        // Find the price (a number with digits) in the row
-        // In your export, price is typically around index 2 or 3
         let priceIndex = row.findIndex(cell => !isNaN(cell) && Number(cell) > 0);
         if (priceIndex === -1) continue;
 
         const price = parseFloat(row[priceIndex]) || 0.0;
-        // Name is right before price
         const name = priceIndex > 0 ? row[priceIndex - 1] : 'Product';
-        // Category is right after price
         const category = priceIndex + 1 < row.length ? row[priceIndex + 1] : 'Cleaning';
-        // Stock is after category
         const stock = parseInt(row[priceIndex + 2]) || 10;
         const featured = row.some(cell => String(cell).toUpperCase() === 'TRUE');
         const image = row.find(cell => String(cell).startsWith('http') || String(cell).startsWith('data:image')) || '';
@@ -797,4 +792,42 @@ export default function AdminDashboard() {
 
     </div>
   );
+}
+
+// SECURE PASSWORD GATE WRAPPER (DEFAULT EXPORT)
+export default function AdminGate() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    // 🔑 CHANGE 'Karam123' TO YOUR SECURE ADMIN PASSWORD HERE:
+    if (passwordInput === 'Karam123') {
+      setIsAuthenticated(true);
+    } else {
+      alert('Incorrect admin password!');
+    }
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#1c1b1b', color: '#FFF7EE', fontFamily: 'system-ui' }}>
+        <form onSubmit={handleLogin} style={{ background: '#2D2C2C', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)', width: '320px', textAlign: 'center' }}>
+          <h2 style={{ color: '#FD7100', marginBottom: '1rem' }}>Admin Access Locked</h2>
+          <input 
+            type="password" 
+            placeholder="Enter Admin Password..." 
+            value={passwordInput} 
+            onChange={e => setPasswordInput(e.target.value)}
+            style={{ width: '100%', padding: '0.7rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', marginBottom: '1rem', boxSizing: 'border-box' }}
+          />
+          <button type="submit" style={{ width: '100%', background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+            Unlock Dashboard
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  return <AdminDashboard />;
 }
