@@ -22,12 +22,12 @@ function AdminDashboard() {
   const [editPhone, setEditPhone] = useState('');
   const [editItems, setEditItems] = useState([]);
 
-  // Product Form State
+  // Product Form State (Fixed Category Binding)
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formName, setFormName] = useState('');
   const [formPrice, setFormPrice] = useState('');
-  const [formCategory, setFormCategory] = useState('Cleaning');
+  const [formCategory, setFormCategory] = useState('Kitchen');
   const [formImage, setFormImage] = useState('');
   const [formImagesInput, setFormImagesInput] = useState('');
   const [formStock, setFormStock] = useState('10');
@@ -134,22 +134,23 @@ function AdminDashboard() {
     printWindow.document.close();
   };
 
-  // --- DOWNLOAD CSV TEMPLATE FOR IMPORTING ---
-  const handleDownloadTemplate = () => {
-    const csvTemplate = `id,name,price,category,stock,featured,image,images,description
-,Example Product Name,5.50,Kitchen,20,TRUE,https://example.com/image.jpg,https://example.com/extra1.jpg|https://example.com/extra2.jpg,Product description here`;
-    
-    const blob = new Blob(['\uFEFF' + csvTemplate], { type: 'text/csv;charset=utf-8;' });
+  // --- DOWNLOAD CSV TEMPLATE ---
+  const handleDownloadCsvTemplate = () => {
+    const templateHeaders = ['name', 'price', 'category', 'stock', 'featured', 'image', 'images', 'description'];
+    const sampleRow = ['طنجرة', '25.00', 'Kitchen', '10', 'TRUE', 'https://example.com/image.jpg', '', 'High quality pot'];
+    const csvContent = [templateHeaders.join(','), sampleRow.join(',')].join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', 'karam_products_import_template.csv');
+    link.setAttribute('download', 'karam_stores_product_template.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // --- EXPORT INVENTORY ---
+  // --- CSV BACKUP & IMPORT ---
   const handleExportInventory = () => {
     const headers = ['id', 'name', 'price', 'category', 'stock', 'featured', 'image', 'images', 'description'];
     const csvRows = [headers.join(',')];
@@ -166,7 +167,7 @@ function AdminDashboard() {
         formattedId,
         escapeCell(p.name || ''),
         escapeCell(p.price || 0),
-        escapeCell(p.category || 'Cleaning'),
+        escapeCell(p.category || 'Kitchen'),
         escapeCell(p.stock || 0),
         escapeCell(p.featured ? 'TRUE' : 'FALSE'),
         escapeCell(p.image || ''),
@@ -186,7 +187,6 @@ function AdminDashboard() {
     document.body.removeChild(link);
   };
 
-  // --- ROBUST CSV IMPORT PARSER ---
   const handleImportInventory = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -229,23 +229,20 @@ function AdminDashboard() {
 
         const price = parseFloat(row[priceIndex]) || 0.0;
         const name = priceIndex > 0 ? row[priceIndex - 1] : 'Product';
-        const category = priceIndex + 1 < row.length ? row[priceIndex + 1] : 'Cleaning';
+        const category = priceIndex + 1 < row.length ? row[priceIndex + 1] : 'Kitchen';
         const stock = parseInt(row[priceIndex + 2]) || 10;
         const featured = row.some(cell => String(cell).toUpperCase() === 'TRUE');
-        const image = row.find(cell => String(cell).startsWith('http') || String(cell).startsWith('data:image')) || '';
-        const imagesCell = row.find(cell => String(cell).includes('|')) || '';
-        const imagesArray = imagesCell ? imagesCell.split('|').map(s => s.trim()).filter(Boolean) : [];
-        const description = row[row.length - 1] !== category && row[row.length - 1] !== String(stock) ? row[row.length - 1] : '';
+        const image = row.find(cell => String(cell).startsWith('http') || String(cell).startsWith('data:image') || String(cell).startsWith('/')) || '';
 
         parsedProducts.push({
           name: isNaN(name) ? name : 'Product',
           price,
-          category: isNaN(category) ? category : 'Cleaning',
+          category: isNaN(category) ? category : 'Kitchen',
           stock: !isNaN(stock) ? stock : 10,
           featured,
           image,
-          images: imagesArray,
-          description: isNaN(description) ? description : ''
+          images: [],
+          description: ''
         });
       }
 
@@ -270,7 +267,7 @@ function AdminDashboard() {
     };
   };
 
-  // --- FIXED PRODUCT UPDATE & SAVE HANDLER ---
+  // --- PRODUCT MANAGEMENT (FIXED CATEGORY BINDING) ---
   const handleSaveProduct = (e) => {
     e.preventDefault();
     const extraImagesArray = formImagesInput ? formImagesInput.split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -285,7 +282,6 @@ function AdminDashboard() {
       description: formDescription
     };
 
-    // Correct URL mapping for updating vs creating products
     const url = editingId 
       ? `https://karamstores.onrender.com/api/products/${editingId}`
       : 'https://karamstores.onrender.com/api/products';
@@ -296,26 +292,20 @@ function AdminDashboard() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(productData)
     })
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to save product');
-        return res.json();
-      })
+      .then(res => res.json())
       .then(() => {
         resetProductForm();
         fetchData();
         alert(editingId ? 'Product updated successfully!' : 'Product added successfully!');
       })
-      .catch(err => {
-        console.error('Error saving product:', err);
-        alert('Error saving product. Please check console.');
-      });
+      .catch(err => console.error('Error saving product:', err));
   };
 
   const startEditProduct = (prod) => {
     setEditingId(prod.id || prod._id);
     setFormName(prod.name || '');
     setFormPrice(prod.price !== undefined ? prod.price : '');
-    setFormCategory(prod.category || 'Cleaning');
+    setFormCategory(prod.category || 'Kitchen');
     setFormImage(prod.image || '');
     setFormImagesInput(Array.isArray(prod.images) ? prod.images.join(', ') : '');
     setFormStock(prod.stock !== undefined ? String(prod.stock) : '10');
@@ -329,7 +319,7 @@ function AdminDashboard() {
     setEditingId(null);
     setFormName('');
     setFormPrice('');
-    setFormCategory('Cleaning');
+    setFormCategory('Kitchen');
     setFormImage('');
     setFormImagesInput('');
     setFormStock('10');
@@ -345,7 +335,7 @@ function AdminDashboard() {
       .catch(err => console.error('Error deleting product:', err));
   };
 
-  // --- ORDER MANAGEMENT ---
+  // --- ORDER STATUS & FULL EDITING ---
   const handleUpdateOrderStatus = (orderId, newStatus) => {
     fetch(`https://karamstores.onrender.com/api/orders/${orderId}`, {
       method: 'PUT',
@@ -454,7 +444,7 @@ function AdminDashboard() {
       .then(data => setSettings(data));
   };
 
-  // --- COMPUTED ANALYTICS ---
+  // --- COMPUTED DATA & ANALYTICS ---
   const sortedOrders = useMemo(() => {
     return [...orders].sort((a, b) => {
       const timeA = new Date(a.createdAt || a.id || 0).getTime();
@@ -535,7 +525,7 @@ function AdminDashboard() {
           📋 Orders ({orders.length})
         </button>
         <button onClick={() => setActiveTab('inventory')} style={{ padding: '0.7rem 1.2rem', background: activeTab === 'inventory' ? '#FD7100' : '#2D2C2C', color: '#FFF7EE', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-          📦 Inventory & Backup ({products.length})
+          📦 Inventory & Templates ({products.length})
         </button>
         <button onClick={() => setActiveTab('settings')} style={{ padding: '0.7rem 1.2rem', background: activeTab === 'settings' ? '#FD7100' : '#2D2C2C', color: '#FFF7EE', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
           ⚙️ Regional Delivery & Promos
@@ -641,26 +631,26 @@ function AdminDashboard() {
         </div>
       )}
 
-      {/* TAB 2: INVENTORY & BACKUP */}
+      {/* TAB 2: INVENTORY & TEMPLATE IMPORT */}
       {activeTab === 'inventory' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
             <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
-              <h3 style={{ margin: '0 0 0.5rem 0', color: '#FD7100', fontSize: '1.1rem' }}>💾 Inventory Backup & CSV Tools</h3>
+              <h3 style={{ margin: '0 0 0.5rem 0', color: '#FD7100', fontSize: '1.1rem' }}>📄 CSV Templates & Import / Export</h3>
               <p style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', opacity: 0.7, lineHeight: '1.4' }}>
-                Download the CSV template, fill it out, import products in bulk, or export your inventory.
+                Download the CSV template, edit it in Excel or Notepad, and upload it back to import products.
               </p>
               <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
-                <button onClick={handleDownloadTemplate} style={{ background: '#6366f1', color: '#fff', border: 'none', padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
-                  📄 Download CSV Template
-                </button>
-                <button onClick={handleExportInventory} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
-                  📥 Export Inventory (CSV)
+                <button onClick={handleDownloadCsvTemplate} style={{ background: '#d97706', color: '#fff', border: 'none', padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
+                  📥 Download CSV Template
                 </button>
                 <label style={{ background: '#3b82f6', color: '#fff', padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-block' }}>
-                  📤 Import CSV Products
+                  📤 Import Filled CSV
                   <input type="file" accept=".csv" onChange={handleImportInventory} style={{ display: 'none' }} />
                 </label>
+                <button onClick={handleExportInventory} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
+                  💾 Backup All (CSV)
+                </button>
               </div>
             </div>
 
@@ -894,7 +884,7 @@ function AdminDashboard() {
         </div>
       )}
 
-      {/* FULL EDIT ORDER & PRODUCTS MODAL */}
+      {/* FULL EDIT ORDER MODAL */}
       {editingOrder && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '1rem' }}>
           <div style={{ background: '#2D2C2C', border: '1px solid rgba(255,247,238,0.2)', borderRadius: '14px', width: '100%', maxWidth: '550px', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', color: '#FFF7EE' }}>
