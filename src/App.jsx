@@ -140,7 +140,7 @@ const translations = {
     navCart: "السلة",
     navOrders: "الطلبات",
     storeInfoTitle: "معلومات المتجر والتوصيل",
-    storeHours: "ساعات العمل ايام من السبت الى الخميس من الساعة ",
+    storeHours: "ساعات العمل: 9:00 صباحاً - 10:00 مساءً (يومياً)",
     storeLocation: "الموقع: عمان، الأردن (متوفر الدفع عند الاستلام)",
     storeSupport: "خدمة العملاء: 0781794172"
   }
@@ -219,6 +219,48 @@ export default function StoreApp() {
     fetchOrders();
     fetchSettings();
   }, []);
+
+  // --- INTERCEPT BROWSER BACK BUTTON TO CLOSE POPUPS INSTEAD OF LEAVING SITE ---
+  useEffect(() => {
+    const isPopupActive = 
+      selectedProduct !== null || 
+      selectedCategoryView !== null || 
+      isMoreCatalogOpen || 
+      submittedSearchQuery !== '' || 
+      isCartOpen || 
+      isCheckoutOpen || 
+      isOrderHistoryOpen ||
+      isSearchOpen;
+
+    if (isPopupActive) {
+      window.history.pushState({ modalOpen: true }, '');
+
+      const handlePopState = (event) => {
+        setSelectedProduct(null);
+        setSelectedCategoryView(null);
+        setIsMoreCatalogOpen(false);
+        setSubmittedSearchQuery('');
+        setIsCartOpen(false);
+        setIsCheckoutOpen(false);
+        setIsOrderHistoryOpen(false);
+        setIsSearchOpen(false);
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+      };
+    }
+  }, [
+    selectedProduct, 
+    selectedCategoryView, 
+    isMoreCatalogOpen, 
+    submittedSearchQuery, 
+    isCartOpen, 
+    isCheckoutOpen, 
+    isOrderHistoryOpen,
+    isSearchOpen
+  ]);
 
   const openProductDetails = (product) => {
     setSelectedProduct(product);
