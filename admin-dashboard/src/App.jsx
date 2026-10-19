@@ -4,7 +4,7 @@ function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('orders');
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [settings, setSettings] = useState({ deliveryFee: 2.00, discountCodes: {} });
+  const [settings, setSettings] = useState({ deliveryFee: 2.00, irbidDeliveryFee: 3.50, discountCodes: {} });
   
   // Filtering & Search States
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
@@ -15,10 +15,12 @@ function AdminDashboard() {
   // Transaction Detail Modal State
   const [selectedOrder, setSelectedOrder] = useState(null);
 
-  // Edit Order State
+  // Edit Order State (Full Order & Product Editing)
   const [editingOrder, setEditingOrder] = useState(null);
+  const [editArabicName, setEditArabicName] = useState('');
   const [editAddress, setEditAddress] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [editItems, setEditItems] = useState([]);
 
   // Product Form State (With Multi-Images Support)
   const [isAddingProduct, setIsAddingProduct] = useState(false);
@@ -27,13 +29,14 @@ function AdminDashboard() {
   const [formPrice, setFormPrice] = useState('');
   const [formCategory, setFormCategory] = useState('Cleaning');
   const [formImage, setFormImage] = useState('');
-  const [formImagesInput, setFormImagesInput] = useState(''); // Comma separated extra images
+  const [formImagesInput, setFormImagesInput] = useState('');
   const [formStock, setFormStock] = useState('10');
   const [formFeatured, setFormFeatured] = useState(false);
   const [formDescription, setFormDescription] = useState('');
 
   // Settings Form State
-  const [newFee, setNewFee] = useState('');
+  const [ammanFee, setAmmanFee] = useState(2.00);
+  const [irbidFee, setIrbidFee] = useState(3.50);
   const [newPromoCode, setNewPromoCode] = useState('');
   const [newPromoVal, setNewPromoVal] = useState('');
 
@@ -52,7 +55,8 @@ function AdminDashboard() {
       .then(res => res.json())
       .then(data => {
         setSettings(data);
-        setNewFee(data.deliveryFee || 2.00);
+        setAmmanFee(data.deliveryFee !== undefined ? data.deliveryFee : 2.00);
+        setIrbidFee(data.irbidDeliveryFee !== undefined ? data.irbidDeliveryFee : 3.50);
       })
       .catch(err => console.error('Error fetching settings:', err));
   };
@@ -61,7 +65,77 @@ function AdminDashboard() {
     fetchData();
   }, []);
 
-  // --- CSV EXPORT WITH MULTI-IMAGES SUPPORT ---
+  // --- PRINTING RECEIPT & BARCODES ---
+  const handlePrintReceipt = (ord) => {
+    const printWindow = window.open('', '_blank');
+    const htmlContent = `
+      <html dir="rtl">
+        <head>
+          <title>Receipt #${ord.id || ord._id}</title>
+          <style>
+            body { font-family: Tahoma, sans-serif; padding: 20px; color: #000; }
+            .header { text-align: center; border-bottom: 2px dashed #333; padding-bottom: 10px; margin-bottom: 15px; }
+            .details { margin-bottom: 15px; font-size: 14px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: right; font-size: 13px; }
+            th { background: #f4f4f4; }
+            .total { font-weight: bold; font-size: 16px; text-align: left; }
+            .barcode-box { text-align: center; margin-top: 25px; font-family: monospace; font-size: 20px; letter-spacing: 4px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2>كرم ستورز - Karam Stores</h2>
+            <p>إيصال طلب رسمي / Official Order Receipt</p>
+          </div>
+          <div class="details">
+            <p><strong>رقم الطلب:</strong> #${ord.id || ord._id}</p>
+            <p><strong>التاريخ:</strong> ${new Date(ord.createdAt || Date.now()).toLocaleString()}</p>
+            <p><strong>اسم العميل:</strong> ${ord.customer?.arabicName || ord.arabicName || 'N/A'}</p>
+            <p><strong>رقم الهاتف:</strong> ${ord.customer?.phone1 || ord.phone || 'N/A'}</p>
+            <p><strong>العنوان:</strong> ${ord.customer?.manualAddress || ord.address || 'N/A'}</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>المنتج</th>
+                <th>الكمية</th>
+                <th>السعر الفردي</th>
+                <th>المجموع</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(ord.items || []).map(i => `
+                <tr>
+                  <td>${i.name} ${i.selectedSize ? `(${i.selectedSize})` : ''}</td>
+                  <td>${i.quantity}</td>
+                  <td>${Number(i.price).toFixed(2)} JD</td>
+                  <td>${(i.price * i.quantity).toFixed(2)} JD</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div style="font-size: 14px; line-height: 1.6;">
+            <p>المجموع الفرعي: <strong>${Number(ord.total || 0).toFixed(2)} JD</strong></p>
+            <p>رسوم التوصيل: <strong>${Number(ord.deliveryFee || 2.00).toFixed(2)} JD</strong></p>
+            ${ord.discountAmount > 0 ? `<p>الخصم: <strong>-${Number(ord.discountAmount).toFixed(2)} JD</strong></p>` : ''}
+            <p style="font-size: 16px; color: #d97706;">المجموع الإجمالي (نقداً): <strong>${Number(ord.grandTotal || ord.total || 0).toFixed(2)} JD</strong></p>
+          </div>
+          <div class="barcode-box">
+            *ORD-${ord.id || ord._id}*
+            <div style="font-size: 10px; margin-top: 5px;">Barcode ID: ${ord.id || ord._id}</div>
+          </div>
+          <script>
+            window.onload = function() { window.print(); window.close(); }
+          </script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
+  // --- CSV INVENTORY BACKUP ---
   const handleExportInventory = () => {
     const headers = ['id', 'name', 'price', 'category', 'stock', 'featured', 'image', 'images', 'description'];
     const csvRows = [headers.join(',')];
@@ -72,10 +146,8 @@ function AdminDashboard() {
         const str = String(val).replace(/"/g, '""');
         return `"${str}"`;
       };
-
       const formattedId = `"\t${p.id || p._id || ''}"`;
       const imagesString = Array.isArray(p.images) ? p.images.join('|') : (p.images || '');
-
       const row = [
         formattedId,
         escapeCell(p.name || ''),
@@ -100,11 +172,9 @@ function AdminDashboard() {
     document.body.removeChild(link);
   };
 
-  // --- ROBUST & CLEAN CSV IMPORT PARSER ---
   const handleImportInventory = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.readAsText(file, 'UTF-8');
     
@@ -115,7 +185,6 @@ function AdminDashboard() {
         alert('Invalid CSV file format.');
         return;
       }
-
       const parseLine = (line) => {
         const row = [];
         let inQuotes = false;
@@ -123,31 +192,23 @@ function AdminDashboard() {
         for (let i = 0; i < line.length; i++) {
           const char = line[i];
           if (char === '"') {
-            if (inQuotes && line[i + 1] === '"') {
-              currentField += '"';
-              i++;
-            } else {
-              inQuotes = !inQuotes;
-            }
+            if (inQuotes && line[i + 1] === '"') { currentField += '"'; i++; }
+            else { inQuotes = !inQuotes; }
           } else if (char === ',' && !inQuotes) {
             row.push(currentField.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
             currentField = '';
-          } else {
-            currentField += char;
-          }
+          } else { currentField += char; }
         }
         row.push(currentField.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
         return row;
       };
 
       const parsedProducts = [];
-      // Skip header (i = 1)
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
         const row = parseLine(line).filter(cell => cell !== '');
         if (row.length < 2) continue;
-
         let priceIndex = row.findIndex(cell => !isNaN(cell) && Number(cell) > 0);
         if (priceIndex === -1) continue;
 
@@ -160,11 +221,11 @@ function AdminDashboard() {
 
         parsedProducts.push({
           name: isNaN(name) ? name : 'Product',
-          price: price,
+          price,
           category: isNaN(category) ? category : 'Cleaning',
           stock: !isNaN(stock) ? stock : 10,
-          featured: featured,
-          image: image,
+          featured,
+          image,
           images: [],
           description: ''
         });
@@ -191,11 +252,10 @@ function AdminDashboard() {
     };
   };
 
-  // --- PRODUCT FORM SAVING (WITH MULTI-IMAGES) ---
+  // --- PRODUCT MANAGEMENT ---
   const handleSaveProduct = (e) => {
     e.preventDefault();
     const extraImagesArray = formImagesInput ? formImagesInput.split(',').map(s => s.trim()).filter(Boolean) : [];
-
     const productData = {
       name: formName,
       price: parseFloat(formPrice),
@@ -210,11 +270,10 @@ function AdminDashboard() {
     const url = editingId 
       ? `https://karamstores.onrender.com/api/products/${editingId}`
       : 'https://karamstores.onrender.com/api/products';
-    
     const method = editingId ? 'PUT' : 'POST';
 
     fetch(url, {
-      method: method,
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(productData)
     })
@@ -261,7 +320,7 @@ function AdminDashboard() {
       .catch(err => console.error('Error deleting product:', err));
   };
 
-  // --- ORDER STATUS & EDITING ---
+  // --- ORDER STATUS & FULL EDITING ---
   const handleUpdateOrderStatus = (orderId, newStatus) => {
     fetch(`https://karamstores.onrender.com/api/orders/${orderId}`, {
       method: 'PUT',
@@ -270,15 +329,23 @@ function AdminDashboard() {
     })
       .then(res => res.json())
       .then(() => fetchData())
-      .catch(err => console.error('Error updating order status:', err));
+      .catch(err => console.error('Error updating status:', err));
   };
 
   const handleSaveEditedOrder = (e) => {
     e.preventDefault();
     if (!editingOrder) return;
     const ordId = editingOrder.id || editingOrder._id;
+    
+    // Recalculate totals based on edited items
+    const newSubtotal = editItems.reduce((sum, item) => sum + (Number(item.price) * Number(item.quantity)), 0);
+    const delivery = Number(editingOrder.deliveryFee || 2.00);
+    const discount = Number(editingOrder.discountAmount || 0);
+    const newGrandTotal = Math.max(0, newSubtotal + delivery - discount);
+
     const updatedCustomer = {
       ...(editingOrder.customer || {}),
+      arabicName: editArabicName,
       phone1: editPhone,
       manualAddress: editAddress
     };
@@ -286,29 +353,40 @@ function AdminDashboard() {
     fetch(`https://karamstores.onrender.com/api/orders/${ordId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ customer: updatedCustomer, phone: editPhone, address: editAddress })
+      body: JSON.stringify({
+        customer: updatedCustomer,
+        phone: editPhone,
+        address: editAddress,
+        items: editItems,
+        total: newSubtotal,
+        grandTotal: newGrandTotal
+      })
     })
       .then(res => res.json())
       .then(() => {
         setEditingOrder(null);
         fetchData();
-        alert('Order updated successfully!');
+        alert('Order & products updated successfully!');
       })
       .catch(err => console.error('Error updating order:', err));
   };
 
-  // --- SETTINGS & PROMOS ---
+  // --- SETTINGS & REGIONAL DELIVERY FEES ---
   const handleUpdateSettings = (e) => {
     e.preventDefault();
     fetch('https://karamstores.onrender.com/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deliveryFee: parseFloat(newFee), discountCodes: settings.discountCodes })
+      body: JSON.stringify({
+        deliveryFee: parseFloat(ammanFee),
+        irbidDeliveryFee: parseFloat(irbidFee),
+        discountCodes: settings.discountCodes
+      })
     })
       .then(res => res.json())
       .then(data => {
         setSettings(data);
-        alert('Store settings updated successfully!');
+        alert('Store settings & regional delivery fees updated successfully!');
       })
       .catch(err => console.error('Error updating settings:', err));
   };
@@ -320,7 +398,11 @@ function AdminDashboard() {
     fetch('https://karamstores.onrender.com/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deliveryFee: settings.deliveryFee, discountCodes: updatedCodes })
+      body: JSON.stringify({
+        deliveryFee: settings.deliveryFee,
+        irbidDeliveryFee: settings.irbidDeliveryFee,
+        discountCodes: updatedCodes
+      })
     })
       .then(res => res.json())
       .then(data => {
@@ -338,13 +420,17 @@ function AdminDashboard() {
     fetch('https://karamstores.onrender.com/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deliveryFee: settings.deliveryFee, discountCodes: updatedCodes })
+      body: JSON.stringify({
+        deliveryFee: settings.deliveryFee,
+        irbidDeliveryFee: settings.irbidDeliveryFee,
+        discountCodes: updatedCodes
+      })
     })
       .then(res => res.json())
       .then(data => setSettings(data));
   };
 
-  // --- COMPUTED DATA ---
+  // --- COMPUTED DATA & MONTHLY INCOME ANALYTICS ---
   const sortedOrders = useMemo(() => {
     return [...orders].sort((a, b) => {
       const timeA = new Date(a.createdAt || a.id || 0).getTime();
@@ -375,28 +461,47 @@ function AdminDashboard() {
 
   const totalRevenue = orders.reduce((sum, ord) => sum + Number(ord.grandTotal || ord.total || 0), 0);
 
+  // Monthly breakdown calculation
+  const currentMonthKey = new Date().toISOString().slice(0, 7); // YYYY-MM
+  const monthlyStats = useMemo(() => {
+    let monthRev = 0;
+    let monthCount = 0;
+    orders.forEach(ord => {
+      const ordDate = ord.createdAt ? ord.createdAt.slice(0, 7) : currentMonthKey;
+      if (ordDate === currentMonthKey) {
+        monthRev += Number(ord.grandTotal || ord.total || 0);
+        monthCount++;
+      }
+    });
+    return { monthRev, monthCount, currentMonthKey };
+  }, [orders, currentMonthKey]);
+
   return (
     <div style={{ padding: '2rem', background: '#1c1b1b', color: '#FFF7EE', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
       
-      {/* Header & Quick Metrics */}
+      {/* Header & Financial Metrics */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,247,238,0.2)', paddingBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.8rem', color: '#FD7100' }}>Karam Stores Admin</h1>
           <p style={{ margin: '0.2rem 0 0 0', opacity: 0.7, fontSize: '0.9rem' }}>Enterprise Control Center ({products.length} Items Loaded)</p>
         </div>
         
-        <div style={{ display: 'flex', gap: '1.5rem', background: '#2D2C2C', padding: '0.8rem 1.2rem', borderRadius: '10px', border: '1px solid rgba(255,247,238,0.1)' }}>
+        <div style={{ display: 'flex', gap: '1.2rem', background: '#2D2C2C', padding: '0.8rem 1.2rem', borderRadius: '10px', border: '1px solid rgba(255,247,238,0.1)', flexWrap: 'wrap' }}>
           <div>
-            <span style={{ fontSize: '0.75rem', opacity: 0.7, display: 'block' }}>Total Orders</span>
-            <strong style={{ fontSize: '1.1rem' }}>{orders.length}</strong>
+            <span style={{ fontSize: '0.7rem', opacity: 0.7, display: 'block' }}>Total Orders</span>
+            <strong style={{ fontSize: '1.05rem' }}>{orders.length}</strong>
           </div>
-          <div style={{ borderLeft: '1px solid rgba(255,247,238,0.2)', paddingLeft: '1.5rem' }}>
-            <span style={{ fontSize: '0.75rem', opacity: 0.7, display: 'block' }}>Total Revenue</span>
-            <strong style={{ fontSize: '1.1rem', color: '#4ade80' }}>{totalRevenue.toFixed(2)} JD</strong>
+          <div style={{ borderLeft: '1px solid rgba(255,247,238,0.2)', paddingLeft: '1rem' }}>
+            <span style={{ fontSize: '0.7rem', opacity: 0.7, display: 'block' }}>Total Revenue</span>
+            <strong style={{ fontSize: '1.05rem', color: '#4ade80' }}>{totalRevenue.toFixed(2)} JD</strong>
           </div>
-          <div style={{ borderLeft: '1px solid rgba(255,247,238,0.2)', paddingLeft: '1.5rem' }}>
-            <span style={{ fontSize: '0.75rem', opacity: 0.7, display: 'block' }}>Low Stock Alerts</span>
-            <strong style={{ fontSize: '1.1rem', color: lowStockProducts.length > 0 ? '#ef4444' : '#4ade80' }}>{lowStockProducts.length}</strong>
+          <div style={{ borderLeft: '1px solid rgba(255,247,238,0.2)', paddingLeft: '1rem' }}>
+            <span style={{ fontSize: '0.7rem', opacity: 0.7, display: 'block' }}>Monthly Income ({monthlyStats.currentMonthKey})</span>
+            <strong style={{ fontSize: '1.05rem', color: '#60a5fa' }}>{monthlyStats.monthRev.toFixed(2)} JD ({monthlyStats.monthCount} orders)</strong>
+          </div>
+          <div style={{ borderLeft: '1px solid rgba(255,247,238,0.2)', paddingLeft: '1rem' }}>
+            <span style={{ fontSize: '0.7rem', opacity: 0.7, display: 'block' }}>Low Stock</span>
+            <strong style={{ fontSize: '1.05rem', color: lowStockProducts.length > 0 ? '#ef4444' : '#4ade80' }}>{lowStockProducts.length}</strong>
           </div>
         </div>
       </div>
@@ -407,10 +512,10 @@ function AdminDashboard() {
           📋 Orders ({orders.length})
         </button>
         <button onClick={() => setActiveTab('inventory')} style={{ padding: '0.7rem 1.2rem', background: activeTab === 'inventory' ? '#FD7100' : '#2D2C2C', color: '#FFF7EE', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-          📦 Inventory & 14k Backup ({products.length})
+          📦 Inventory & Backup ({products.length})
         </button>
         <button onClick={() => setActiveTab('settings')} style={{ padding: '0.7rem 1.2rem', background: activeTab === 'settings' ? '#FD7100' : '#2D2C2C', color: '#FFF7EE', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-          ⚙️ Store Settings & Promos
+          ⚙️ Regional Delivery & Promos
         </button>
       </div>
 
@@ -418,7 +523,7 @@ function AdminDashboard() {
       {activeTab === 'orders' && (
         <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
-            <h3 style={{ margin: 0, color: '#FD7100' }}>📋 Customer Orders (Newest First)</h3>
+            <h3 style={{ margin: 0, color: '#FD7100' }}>📋 Customer Orders</h3>
             
             <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
               <input 
@@ -463,7 +568,7 @@ function AdminDashboard() {
                         <select 
                           value={ord.status || 'Pending'} 
                           onChange={e => handleUpdateOrderStatus(ordId, e.target.value)}
-                          style={{ padding: '0.3rem 0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', fontWeight: 'bold', fontSize: '0.8rem' }}
+                          style={{ padding: '0.3rem 0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer' }}
                         >
                           <option value="Pending">Pending</option>
                           <option value="Processing">Processing</option>
@@ -481,9 +586,14 @@ function AdminDashboard() {
                           <p style={{ margin: '0 0 0.2rem 0' }}>📞 <strong>Phone:</strong> {ord.customer.phone1}</p>
                           <p style={{ margin: 0 }}>📍 <strong>Address:</strong> {ord.customer.manualAddress}</p>
                         </div>
-                        <button onClick={() => { setEditingOrder(ord); setEditPhone(ord.customer.phone1 || ''); setEditAddress(ord.customer.manualAddress || ''); }} style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                          ✏️ Edit Order
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button onClick={() => { setEditingOrder(ord); setEditArabicName(ord.customer.arabicName || ''); setEditPhone(ord.customer.phone1 || ''); setEditAddress(ord.customer.manualAddress || ''); setEditItems(ord.items ? [...ord.items] : []); }} style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                            ✏️ Full Edit
+                          </button>
+                          <button onClick={() => handlePrintReceipt(ord)} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                            🖨️ Print Receipt & Barcode
+                          </button>
+                        </div>
                       </div>
                     )}
 
@@ -496,7 +606,7 @@ function AdminDashboard() {
                           Total: {Number(ord.grandTotal || ord.total || 0).toFixed(2)} JD
                         </span>
                         <button onClick={() => setSelectedOrder(ord)} style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                          🔍 Full Transaction View
+                          🔍 View Details
                         </button>
                       </div>
                     </div>
@@ -508,15 +618,14 @@ function AdminDashboard() {
         </div>
       )}
 
-      {/* TAB 2: INVENTORY & 14K BACKUP */}
+      {/* TAB 2: INVENTORY & BACKUP */}
       {activeTab === 'inventory' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
             <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
-              <h3 style={{ margin: '0 0 0.5rem 0', color: '#FD7100', fontSize: '1.1rem' }}>💾 14k+ Inventory Backup & Safety</h3>
+              <h3 style={{ margin: '0 0 0.5rem 0', color: '#FD7100', fontSize: '1.1rem' }}>💾 Inventory Backup & Safety</h3>
               <p style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', opacity: 0.7, lineHeight: '1.4' }}>
-                Export your entire product catalog as a clean CSV backup file, or restore items instantly if the server ever resets.
+                Export your entire product catalog as a clean CSV backup file, or restore items instantly.
               </p>
               <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
                 <button onClick={handleExportInventory} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
@@ -532,7 +641,7 @@ function AdminDashboard() {
             <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
               <h3 style={{ margin: '0 0 0.5rem 0', color: '#ef4444', fontSize: '1.1rem' }}>⚠️ Low Stock Monitor ({lowStockProducts.length})</h3>
               <p style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', opacity: 0.7, lineHeight: '1.4' }}>
-                Products running low or out of stock (Stock ≤ 3) that need restocked immediately.
+                Products running low or out of stock (Stock ≤ 3).
               </p>
               <div style={{ maxHeight: '100px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                 {lowStockProducts.length === 0 ? (
@@ -555,11 +664,11 @@ function AdminDashboard() {
               
               <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', alignItems: 'center' }}>
                 <button onClick={() => { resetProductForm(); setIsAddingProduct(true); }} style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
-                  ➕ Add New Product Manually
+                  ➕ Add New Product
                 </button>
                 <input 
                   type="text" 
-                  placeholder="Search items by name..." 
+                  placeholder="Search items..." 
                   value={productSearchQuery} 
                   onChange={e => setProductSearchQuery(e.target.value)}
                   style={{ padding: '0.5rem 0.8rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', fontSize: '0.85rem', width: '200px' }}
@@ -582,7 +691,7 @@ function AdminDashboard() {
             {/* MANUAL ADD / EDIT PRODUCT FORM */}
             {isAddingProduct && (
               <div style={{ background: '#242323', padding: '1.5rem', borderRadius: '10px', marginBottom: '1.5rem', border: '1px solid #FD7100' }}>
-                <h4 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>{editingId ? `✏️ Edit Product ID: ${editingId}` : '➕ Add New Product Manually'}</h4>
+                <h4 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>{editingId ? `✏️ Edit Product ID: ${editingId}` : '➕ Add New Product'}</h4>
                 <form onSubmit={handleSaveProduct} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
                   <div>
                     <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Product Name *</label>
@@ -611,7 +720,7 @@ function AdminDashboard() {
                     <input type="text" value={formImage} onChange={e => setFormImage(e.target.value)} placeholder="/icons/... or https://..." style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
                   </div>
                   <div style={{ gridColumn: 'span 2' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Extra Images URLs (Comma-separated for multiple images)</label>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Extra Images URLs (Comma-separated)</label>
                     <input type="text" value={formImagesInput} onChange={e => setFormImagesInput(e.target.value)} placeholder="https://img1.com/a.jpg, https://img2.com/b.jpg" style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
                   </div>
                   <div style={{ gridColumn: 'span 2' }}>
@@ -640,9 +749,6 @@ function AdminDashboard() {
                     </div>
                     <h4 style={{ margin: '0 0 0.3rem 0', fontSize: '0.9rem' }}>{prod.name}</h4>
                     <p style={{ margin: '0 0 0.4rem 0', fontWeight: 'bold', color: '#FD7100', fontSize: '0.9rem' }}>{Number(prod.price).toFixed(2)} JD</p>
-                    {prod.images && prod.images.length > 0 && (
-                      <span style={{ fontSize: '0.7rem', opacity: 0.7, display: 'block', marginBottom: '0.4rem' }}>📷 {prod.images.length + 1} images attached</span>
-                    )}
                   </div>
                   <div style={{ display: 'flex', gap: '0.4rem' }}>
                     <button onClick={() => startEditProduct(prod)} style={{ flex: 1, background: '#3b82f6', color: '#fff', border: 'none', padding: '0.35rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Edit</button>
@@ -651,24 +757,25 @@ function AdminDashboard() {
                 </div>
               ))}
             </div>
-            {filteredProducts.length > 30 && (
-              <p style={{ textAlign: 'center', opacity: 0.6, fontSize: '0.8rem', marginTop: '1rem' }}>Showing first 30 results matching filter (out of {filteredProducts.length} total filtered items). Use search to narrow down.</p>
-            )}
           </div>
         </div>
       )}
 
-      {/* TAB 3: STORE SETTINGS & PROMO CODES */}
+      {/* TAB 3: REGIONAL DELIVERY & PROMO CODES */}
       {activeTab === 'settings' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
           <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
-            <h3 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>🚚 Delivery Fee Configuration</h3>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>🚚 Regional Delivery Fee Configuration</h3>
             <form onSubmit={handleUpdateSettings} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: 'bold', display: 'block', marginBottom: '0.4rem' }}>Standard Delivery Fee (JD)</label>
-                <input type="number" step="0.50" value={newFee} onChange={e => setNewFee(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE' }} />
+                <label style={{ fontSize: '0.85rem', fontWeight: 'bold', display: 'block', marginBottom: '0.4rem' }}>Amman Delivery Fee (JD)</label>
+                <input type="number" step="0.50" value={ammanFee} onChange={e => setAmmanFee(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE' }} />
               </div>
-              <button type="submit" style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Update Delivery Fee</button>
+              <div>
+                <label style={{ fontSize: '0.85rem', fontWeight: 'bold', display: 'block', marginBottom: '0.4rem' }}>Irbid & Distant Cities Delivery Fee (JD)</label>
+                <input type="number" step="0.50" value={irbidFee} onChange={e => setIrbidFee(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE' }} />
+              </div>
+              <button type="submit" style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Save Delivery Rates</button>
             </form>
           </div>
 
@@ -702,7 +809,7 @@ function AdminDashboard() {
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '1rem' }}>
           <div style={{ background: '#2D2C2C', border: '1px solid rgba(255,247,238,0.2)', borderRadius: '14px', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', color: '#FFF7EE' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,247,238,0.2)', paddingBottom: '0.8rem', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0, color: '#FD7100' }}>🔍 Full Transaction Receipt #{selectedOrder.id || selectedOrder._id}</h3>
+              <h3 style={{ margin: 0, color: '#FD7100' }}>🔍 Full Receipt #{selectedOrder.id || selectedOrder._id}</h3>
               <button onClick={() => setSelectedOrder(null)} style={{ background: 'transparent', border: 'none', color: '#FFF7EE', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
             </div>
 
@@ -710,14 +817,13 @@ function AdminDashboard() {
               <div style={{ background: '#242323', padding: '0.8rem', borderRadius: '8px' }}>
                 <p style={{ margin: '0 0 0.3rem 0' }}>📅 <strong>Timestamp:</strong> {new Date(selectedOrder.createdAt || Date.now()).toLocaleString()}</p>
                 <p style={{ margin: '0 0 0.3rem 0' }}>📌 <strong>Status:</strong> {selectedOrder.status || 'Pending'}</p>
-                <p style={{ margin: '0 0 0.3rem 0' }}>💳 <strong>Payment Method:</strong> Cash on Delivery (الدفع عند الاستلام)</p>
               </div>
 
               {selectedOrder.customer && (
                 <div style={{ background: '#242323', padding: '0.8rem', borderRadius: '8px' }}>
-                  <p style={{ margin: '0 0 0.3rem 0' }}>👤 <strong>Customer Name:</strong> {selectedOrder.customer.arabicName}</p>
-                  <p style={{ margin: '0 0 0.3rem 0' }}>📞 <strong>Phone Number:</strong> {selectedOrder.customer.phone1}</p>
-                  <p style={{ margin: 0 }}>📍 <strong>Delivery Address:</strong> {selectedOrder.customer.manualAddress}</p>
+                  <p style={{ margin: '0 0 0.3rem 0' }}>👤 <strong>Name:</strong> {selectedOrder.customer.arabicName}</p>
+                  <p style={{ margin: '0 0 0.3rem 0' }}>📞 <strong>Phone:</strong> {selectedOrder.customer.phone1}</p>
+                  <p style={{ margin: 0 }}>📍 <strong>Address:</strong> {selectedOrder.customer.manualAddress}</p>
                 </div>
               )}
 
@@ -729,7 +835,7 @@ function AdminDashboard() {
                       <div>
                         <span style={{ fontWeight: 'bold' }}>{item.name}</span>
                         <span style={{ display: 'block', fontSize: '0.75rem', opacity: 0.7 }}>
-                          {item.selectedSize ? `Size: ${item.selectedSize} ` : ''} {item.selectedColor ? `Color: ${item.selectedColor}` : ''} (Qty: {item.quantity})
+                          {item.selectedSize ? `Size: ${item.selectedSize} ` : ''} (Qty: {item.quantity})
                         </span>
                       </div>
                       <span style={{ fontWeight: 'bold', color: '#FD7100' }}>{(item.price * item.quantity).toFixed(2)} JD</span>
@@ -747,12 +853,6 @@ function AdminDashboard() {
                   <span>Delivery Fee:</span>
                   <span>{Number(selectedOrder.deliveryFee || 2.00).toFixed(2)} JD</span>
                 </div>
-                {selectedOrder.discountAmount > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', color: '#4ade80' }}>
-                    <span>Discount Applied:</span>
-                    <span>-{Number(selectedOrder.discountAmount).toFixed(2)} JD</span>
-                  </div>
-                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '1.05rem', color: '#FD7100', marginTop: '0.4rem', borderTop: '1px solid rgba(255,247,238,0.2)', paddingTop: '0.4rem' }}>
                   <span>Grand Total (Cash):</span>
                   <span>{Number(selectedOrder.grandTotal || selectedOrder.total || 0).toFixed(2)} JD</span>
@@ -760,29 +860,57 @@ function AdminDashboard() {
               </div>
             </div>
 
-            <button onClick={() => setSelectedOrder(null)} style={{ width: '100%', background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', marginTop: '1.2rem' }}>Close Receipt</button>
+            <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1.2rem' }}>
+              <button onClick={() => handlePrintReceipt(selectedOrder)} style={{ flex: 1, background: '#10b981', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>🖨️ Print Receipt & Barcode</button>
+              <button onClick={() => setSelectedOrder(null)} style={{ flex: 1, background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Close</button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* EDIT ORDER MODAL */}
+      {/* FULL EDIT ORDER & PRODUCTS MODAL */}
       {editingOrder && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '1rem' }}>
-          <div style={{ background: '#2D2C2C', border: '1px solid rgba(255,247,238,0.2)', borderRadius: '14px', width: '100%', maxWidth: '450px', padding: '1.5rem', color: '#FFF7EE' }}>
+          <div style={{ background: '#2D2C2C', border: '1px solid rgba(255,247,238,0.2)', borderRadius: '14px', width: '100%', maxWidth: '550px', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', color: '#FFF7EE' }}>
             <h3 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>✏️ Edit Order #{editingOrder.id || editingOrder._id}</h3>
             
             <form onSubmit={handleSaveEditedOrder} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Customer Name (Arabic)</label>
+                <input type="text" value={editArabicName} onChange={e => setEditArabicName(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE' }} />
+              </div>
               <div>
                 <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Customer Phone Number</label>
                 <input type="text" value={editPhone} onChange={e => setEditPhone(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE' }} />
               </div>
               <div>
                 <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Delivery Address</label>
-                <textarea value={editAddress} onChange={e => setEditAddress(e.target.value)} rows="3" required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE' }} />
+                <textarea value={editAddress} onChange={e => setEditAddress(e.target.value)} rows="2" required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE' }} />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.85rem', fontWeight: 'bold', display: 'block', marginBottom: '0.5rem' }}>Ordered Products & Quantities:</label>
+                {editItems.map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem', background: '#242323', padding: '0.5rem', borderRadius: '6px' }}>
+                    <span style={{ flex: 1, fontSize: '0.8rem' }}>{item.name}</span>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      value={item.quantity} 
+                      onChange={e => {
+                        const val = parseInt(e.target.value) || 1;
+                        setEditItems(prev => prev.map((it, i) => i === idx ? { ...it, quantity: val } : it));
+                      }} 
+                      style={{ width: '60px', padding: '0.3rem', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', borderRadius: '4px' }}
+                    />
+                    <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#FD7100' }}>{(item.price * item.quantity).toFixed(2)} JD</span>
+                    <button type="button" onClick={() => setEditItems(prev => prev.filter((_, i) => i !== idx))} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>✕</button>
+                  </div>
+                ))}
               </div>
 
               <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.5rem' }}>
-                <button type="submit" style={{ flex: 1, background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Save Changes</button>
+                <button type="submit" style={{ flex: 1, background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Save All Changes</button>
                 <button type="button" onClick={() => setEditingOrder(null)} style={{ flex: 1, background: '#555', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
               </div>
             </form>
@@ -794,14 +922,13 @@ function AdminDashboard() {
   );
 }
 
-// SECURE PASSWORD GATE WRAPPER (DEFAULT EXPORT)
+// SECURE PASSWORD GATE WRAPPER
 export default function AdminGate() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
 
   const handleLogin = (e) => {
     e.preventDefault();
-    // 🔑 CHANGE 'Karam123' TO YOUR SECURE ADMIN PASSWORD HERE:
     if (passwordInput === 'Karam123') {
       setIsAuthenticated(true);
     } else {
