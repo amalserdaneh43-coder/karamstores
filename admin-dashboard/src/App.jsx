@@ -22,7 +22,7 @@ function AdminDashboard() {
   const [editPhone, setEditPhone] = useState('');
   const [editItems, setEditItems] = useState([]);
 
-  // Product Form State (Fixed Category Binding)
+  // Product Form State
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formName, setFormName] = useState('');
@@ -134,10 +134,10 @@ function AdminDashboard() {
     printWindow.document.close();
   };
 
-  // --- DOWNLOAD CSV TEMPLATE ---
+  // --- DOWNLOAD CSV TEMPLATE WITH ID ---
   const handleDownloadCsvTemplate = () => {
-    const templateHeaders = ['name', 'price', 'category', 'stock', 'featured', 'image', 'images', 'description'];
-    const sampleRow = ['طنجرة', '25.00', 'Kitchen', '10', 'TRUE', 'https://example.com/image.jpg', '', 'High quality pot'];
+    const templateHeaders = ['id', 'name', 'price', 'category', 'stock', 'featured', 'image', 'images', 'description'];
+    const sampleRow = ['', 'طنجرة', '25.00', 'Kitchen', '10', 'TRUE', 'https://example.com/image.jpg', '', 'High quality pot'];
     const csvContent = [templateHeaders.join(','), sampleRow.join(',')].join('\n');
 
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -150,7 +150,7 @@ function AdminDashboard() {
     document.body.removeChild(link);
   };
 
-  // --- CSV BACKUP & IMPORT ---
+  // --- CSV BACKUP & ROBUST IMPORT PARSER ---
   const handleExportInventory = () => {
     const headers = ['id', 'name', 'price', 'category', 'stock', 'featured', 'image', 'images', 'description'];
     const csvRows = [headers.join(',')];
@@ -195,11 +195,12 @@ function AdminDashboard() {
     
     reader.onload = (event) => {
       const text = event.target.result;
-      const lines = text.split(/\r\n|\n/);
+      const lines = text.split(/\r\n|\n/).filter(l => l.trim() !== '');
       if (lines.length < 2) {
-        alert('Invalid CSV file format.');
+        alert('Invalid CSV file format or empty file.');
         return;
       }
+
       const parseLine = (line) => {
         const row = [];
         let inQuotes = false;
@@ -219,45 +220,61 @@ function AdminDashboard() {
       };
 
       const parsedProducts = [];
+      // Skip header (start at i = 1)
       for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        const row = parseLine(line).filter(cell => cell !== '');
-        if (row.length < 2) continue;
-        let priceIndex = row.findIndex(cell => !isNaN(cell) && Number(cell) > 0);
-        if (priceIndex === -1) continue;
+        const row = parseLine(lines[i]);
+        if (row.length < 3) continue;
 
-        const price = parseFloat(row[priceIndex]) || 0.0;
-        const name = priceIndex > 0 ? row[priceIndex - 1] : 'Product';
-        const category = priceIndex + 1 < row.length ? row[priceIndex + 1] : 'Kitchen';
-        const stock = parseInt(row[priceIndex + 2]) || 10;
-        const featured = row.some(cell => String(cell).toUpperCase() === 'TRUE');
-        const image = row.find(cell => String(cell).startsWith('http') || String(cell).startsWith('data:image') || String(cell).startsWith('/')) || '';
+        // Template format: id, name, price, category, stock, featured, image, images, description
+        const id = row[0] || '';
+        const name = row[1] || 'Product';
+        const price = parseFloat(row[2]) || 0.0;
+        const category = row[3] || 'Kitchen';
+        const stock = parseInt(row[4]) || 10;
+        const featured = String(row[5]).toUpperCase() === 'TRUE';
+        const image = row[6] || '';
+        const imagesRaw = row[7] || '';
+        const description = row[8] || '';
+
+        const imagesArray = imagesRaw ? imagesRaw.split('|').map(s => s.trim()).filter(Boolean) : [];
 
         parsedProducts.push({
-          name: isNaN(name) ? name : 'Product',
+          id: id || undefined,
+          _id: id || undefined,
+          name,
           price,
-          category: isNaN(category) ? category : 'Kitchen',
-          stock: !isNaN(stock) ? stock : 10,
+          category,
+          stock,
           featured,
           image,
-          images: [],
-          description: ''
+          images: imagesArray,
+          description
         });
       }
 
-      if (window.confirm(`Successfully parsed ${parsedProducts.length} valid products from CSV. Upload them to the database now?`)) {
+      if (parsedProducts.length === 0) {
+        alert('Could not parse any products. Please check the CSV structure.');
+        return;
+      }
+
+      if (window.confirm(`Successfully parsed ${parsedProducts.length} valid products from CSV. Upload/Update them now?`)) {
         let successCount = 0;
         parsedProducts.forEach(prod => {
-          fetch('https://karamstores.onrender.com/api/products', {
-            method: 'POST',
+          const targetId = prod.id || prod._id;
+          const url = targetId 
+            ? `https://karamstores.onrender.com/api/products/${targetId}`
+            : 'https://karamstores.onrender.com/api/products';
+          const method = targetId ? 'PUT' : 'POST';
+
+          fetch(url, {
+            method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(prod)
           })
             .then(res => {
               if (res.ok) successCount++;
               if (successCount === parsedProducts.length) {
-                alert('Inventory successfully imported!');
+                alert('Inventory successfully imported & updated!');
                 fetchData();
               }
             })
@@ -267,7 +284,7 @@ function AdminDashboard() {
     };
   };
 
-  // --- PRODUCT MANAGEMENT (FIXED CATEGORY BINDING) ---
+  // --- PRODUCT MANAGEMENT (FIXED UPDATE & EDITING) ---
   const handleSaveProduct = (e) => {
     e.preventDefault();
     const extraImagesArray = formImagesInput ? formImagesInput.split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -292,17 +309,24 @@ function AdminDashboard() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(productData)
     })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to save product');
+        return res.json();
+      })
       .then(() => {
         resetProductForm();
         fetchData();
         alert(editingId ? 'Product updated successfully!' : 'Product added successfully!');
       })
-      .catch(err => console.error('Error saving product:', err));
+      .catch(err => {
+        console.error('Error saving product:', err);
+        alert('Error saving product. Please check console.');
+      });
   };
 
   const startEditProduct = (prod) => {
-    setEditingId(prod.id || prod._id);
+    const prodId = prod.id || prod._id;
+    setEditingId(prodId);
     setFormName(prod.name || '');
     setFormPrice(prod.price !== undefined ? prod.price : '');
     setFormCategory(prod.category || 'Kitchen');
@@ -335,7 +359,7 @@ function AdminDashboard() {
       .catch(err => console.error('Error deleting product:', err));
   };
 
-  // --- ORDER STATUS & FULL EDITING ---
+  // --- ORDER STATUS & EDITING ---
   const handleUpdateOrderStatus = (orderId, newStatus) => {
     fetch(`https://karamstores.onrender.com/api/orders/${orderId}`, {
       method: 'PUT',
@@ -380,7 +404,7 @@ function AdminDashboard() {
       .then(() => {
         setEditingOrder(null);
         fetchData();
-        alert('Order & products updated successfully!');
+        alert('Order updated successfully!');
       })
       .catch(err => console.error('Error updating order:', err));
   };
@@ -525,7 +549,7 @@ function AdminDashboard() {
           📋 Orders ({orders.length})
         </button>
         <button onClick={() => setActiveTab('inventory')} style={{ padding: '0.7rem 1.2rem', background: activeTab === 'inventory' ? '#FD7100' : '#2D2C2C', color: '#FFF7EE', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-          📦 Inventory & Templates ({products.length})
+          📦 Inventory Table & Templates ({products.length})
         </button>
         <button onClick={() => setActiveTab('settings')} style={{ padding: '0.7rem 1.2rem', background: activeTab === 'settings' ? '#FD7100' : '#2D2C2C', color: '#FFF7EE', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
           ⚙️ Regional Delivery & Promos
@@ -631,14 +655,14 @@ function AdminDashboard() {
         </div>
       )}
 
-      {/* TAB 2: INVENTORY & TEMPLATE IMPORT */}
+      {/* TAB 2: INVENTORY TABLE & TEMPLATE IMPORT */}
       {activeTab === 'inventory' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
             <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
-              <h3 style={{ margin: '0 0 0.5rem 0', color: '#FD7100', fontSize: '1.1rem' }}>📄 CSV Templates & Import / Export</h3>
+              <h3 style={{ margin: '0 0 0.5rem 0', color: '#FD7100', fontSize: '1.1rem' }}>📄 CSV Templates with ID & Import</h3>
               <p style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', opacity: 0.7, lineHeight: '1.4' }}>
-                Download the CSV template, edit it in Excel or Notepad, and upload it back to import products.
+                Download the CSV template containing product IDs, edit in Excel, and import to update/add items.
               </p>
               <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
                 <button onClick={handleDownloadCsvTemplate} style={{ background: '#d97706', color: '#fff', border: 'none', padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
@@ -676,7 +700,7 @@ function AdminDashboard() {
 
           <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
-              <h3 style={{ margin: 0, color: '#FD7100' }}>📦 Manage Catalog ({filteredProducts.length} items shown)</h3>
+              <h3 style={{ margin: 0, color: '#FD7100' }}>📦 Inventory Table ({filteredProducts.length} items shown)</h3>
               
               <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', alignItems: 'center' }}>
                 <button onClick={() => { resetProductForm(); setIsAddingProduct(true); }} style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
@@ -755,23 +779,46 @@ function AdminDashboard() {
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
-              {filteredProducts.slice(0, 30).map(prod => (
-                <div key={prod.id || prod._id} style={{ background: '#242323', padding: '0.9rem', borderRadius: '8px', border: '1px solid rgba(255,247,238,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem' }}>
-                      <span style={{ fontSize: '0.65rem', background: 'rgba(253,113,0,0.2)', color: '#FD7100', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 'bold' }}>{prod.category}</span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: prod.stock <= 3 ? '#ef4444' : '#4ade80' }}>Stock: {prod.stock}</span>
-                    </div>
-                    <h4 style={{ margin: '0 0 0.3rem 0', fontSize: '0.9rem' }}>{prod.name}</h4>
-                    <p style={{ margin: '0 0 0.4rem 0', fontWeight: 'bold', color: '#FD7100', fontSize: '0.9rem' }}>{Number(prod.price).toFixed(2)} JD</p>
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.4rem' }}>
-                    <button onClick={() => startEditProduct(prod)} style={{ flex: 1, background: '#3b82f6', color: '#fff', border: 'none', padding: '0.35rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Edit</button>
-                    <button onClick={() => handleDeleteProduct(prod.id || prod._id)} style={{ flex: 1, background: '#ef4444', color: '#fff', border: 'none', padding: '0.35rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Delete</button>
-                  </div>
-                </div>
-              ))}
+            {/* PRODUCT TABLE VIEW */}
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                <thead>
+                  <tr style={{ background: '#242323', borderBottom: '1px solid rgba(255,247,238,0.2)', color: '#FD7100' }}>
+                    <th style={{ padding: '0.8rem' }}>ID</th>
+                    <th style={{ padding: '0.8rem' }}>Product Name</th>
+                    <th style={{ padding: '0.8rem' }}>Category</th>
+                    <th style={{ padding: '0.8rem' }}>Price</th>
+                    <th style={{ padding: '0.8rem' }}>Stock</th>
+                    <th style={{ padding: '0.8rem' }}>Featured</th>
+                    <th style={{ padding: '0.8rem', textAlign: 'center' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredProducts.map(prod => {
+                    const pId = prod.id || prod._id;
+                    return (
+                      <tr key={pId} style={{ borderBottom: '1px solid rgba(255,247,238,0.1)' }}>
+                        <td style={{ padding: '0.8rem', fontFamily: 'monospace', opacity: 0.7, fontSize: '0.75rem' }}>{pId}</td>
+                        <td style={{ padding: '0.8rem', fontWeight: 'bold' }}>{prod.name}</td>
+                        <td style={{ padding: '0.8rem' }}>
+                          <span style={{ fontSize: '0.7rem', background: 'rgba(253,113,0,0.2)', color: '#FD7100', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 'bold' }}>{prod.category}</span>
+                        </td>
+                        <td style={{ padding: '0.8rem', fontWeight: 'bold', color: '#FD7100' }}>{Number(prod.price).toFixed(2)} JD</td>
+                        <td style={{ padding: '0.8rem', fontWeight: 'bold', color: (prod.stock !== undefined ? prod.stock : 10) <= 3 ? '#ef4444' : '#4ade80' }}>
+                          {prod.stock !== undefined ? prod.stock : 10}
+                        </td>
+                        <td style={{ padding: '0.8rem' }}>{prod.featured ? '⭐ Yes' : '-'}</td>
+                        <td style={{ padding: '0.8rem', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
+                            <button onClick={() => startEditProduct(prod)} style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Edit</button>
+                            <button onClick={() => handleDeleteProduct(pId)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
