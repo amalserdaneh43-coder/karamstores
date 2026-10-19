@@ -140,7 +140,7 @@ const translations = {
     navCart: "السلة",
     navOrders: "الطلبات",
     storeInfoTitle: "معلومات المتجر والتوصيل",
-    storeHours: "ساعات العمل: 9:00 صباحاً - 10:00 مساءً (يومياً)",
+    storeHours: "ساعات العمل ايام من السبت الى الخميس من الساعة ",
     storeLocation: "الموقع: عمان، الأردن (متوفر الدفع عند الاستلام)",
     storeSupport: "خدمة العملاء: 0781794172"
   }
@@ -285,15 +285,30 @@ export default function StoreApp() {
     }
   };
 
+  // --- FIXED WHATSAPP CHECKOUT WITH CUSTOMER PHONE ---
   const handleWhatsAppCheckout = () => {
     if (cart.length === 0) return;
-    let text = `مرحباً، أود طلب المنتجات التالية من كرم ستورز:\n`;
-    cart.forEach(i => { text += `- ${i.name} (الكمية: ${i.quantity}) - ${ (i.price * i.quantity).toFixed(2) } JD\n`; });
-    text += `المجموع الفرعي: ${ cartSubtotal.toFixed(2) } JD\nرسوم التوصيل: ${ deliveryFee.toFixed(2) } JD`;
-    if (discountValue > 0) text += `\nالخصم (${appliedPromoCode}): -${ discountValue.toFixed(2) } JD`;
-    text += `\nالمجموع الإجمالي: ${ grandTotal.toFixed(2) } JD`;
     
-    // Using store number 0781794172 formatted for WhatsApp (Jordan country code +962)
+    let customerPhoneNum = phone.trim() || localStorage.getItem('user_phone') || '';
+    if (!customerPhoneNum) {
+      customerPhoneNum = prompt(lang === 'ar' ? 'يرجى إدخال رقم هاتفك لتأكيد طلب الواتساب:' : 'Please enter your phone number for WhatsApp checkout:') || '07XXXXXXXX';
+    }
+
+    let text = `مرحباً، أود طلب المنتجات التالية من كرم ستورز:\n`;
+    text += `📞 رقم الهاتف: ${customerPhoneNum}\n`;
+    if (arabicName) text += `👤 الاسم: ${arabicName}\n`;
+    text += `------------------------\n`;
+    
+    cart.forEach(i => { 
+      text += `- ${i.name} (الكمية: ${i.quantity}) - ${(i.price * i.quantity).toFixed(2)} JD\n`; 
+    });
+    
+    text += `------------------------\n`;
+    text += `المجموع الفرعي: ${cartSubtotal.toFixed(2)} JD\n`;
+    text += `رسوم التوصيل: ${deliveryFee.toFixed(2)} JD`;
+    if (discountValue > 0) text += `\nالخصم (${appliedPromoCode}): -${discountValue.toFixed(2)} JD`;
+    text += `\nالمجموع الإجمالي: ${grandTotal.toFixed(2)} JD`;
+    
     window.open(`https://wa.me/962781794172?text=${encodeURIComponent(text)}`, '_blank');
   };
 
