@@ -1,13 +1,785 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import './App.css';
-import React, { useState, useEffect, useMemo } from 'react';
 
 // 1. YOUR MAIN ADMIN DASHBOARD COMPONENT
 function AdminDashboard() {
-  // All your products, orders, inventory, settings, CSV functions stay here as normal...
+  const [activeTab, setActiveTab] = useState('orders');
+  const [products, setProducts] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [settings, setSettings] = useState({ deliveryFee: 2.00, discountCodes: {} });
+  
+  // Filtering & Search States
+  const [orderSearchQuery, setOrderSearchQuery] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState('ALL');
+  const [productSearchQuery, setProductSearchQuery] = useState('');
+  const [productCategoryFilter, setProductCategoryFilter] = useState('ALL');
+
+  // Transaction Detail Modal State
+  const [selectedOrder, setSelectedOrder] = useState(null);
+
+  // Edit Order State
+  const [editingOrder, setEditingOrder] = useState(null);
+  const [editAddress, setEditAddress] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+
+  // Product Form State (With Multi-Images Support)
+  const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [formName, setFormName] = useState('');
+  const [formPrice, setFormPrice] = useState('');
+  const [formCategory, setFormCategory] = useState('Cleaning');
+  const [formImage, setFormImage] = useState('');
+  const [formImagesInput, setFormImagesInput] = useState('');
+  const [formStock, setFormStock] = useState('10');
+  const [formFeatured, setFormFeatured] = useState(false);
+  const [formDescription, setFormDescription] = useState('');
+
+  // Settings Form State
+  const [newFee, setNewFee] = useState('');
+  const [newPromoCode, setNewPromoCode] = useState('');
+  const [newPromoVal, setNewPromoVal] = useState('');
+
+  const fetchData = () => {
+    fetch('https://karamstores.onrender.com/api/products')
+      .then(res => res.json())
+      .then(data => setProducts(data))
+      .catch(err => console.error('Error fetching products:', err));
+
+    fetch('https://karamstores.onrender.com/api/orders')
+      .then(res => res.json())
+      .then(data => setOrders(data))
+      .catch(err => console.error('Error fetching orders:', err));
+
+    fetch('https://karamstores.onrender.com/api/settings')
+      .then(res => res.json())
+      .then(data => {
+        setSettings(data);
+        setNewFee(data.deliveryFee || 2.00);
+      })
+      .catch(err => console.error('Error fetching settings:', err));
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // --- CSV EXPORT WITH MULTI-IMAGES SUPPORT ---
+  const handleExportInventory = () => {
+    const headers = ['id', 'name', 'price', 'category', 'stock', 'featured', 'image', 'images', 'description'];
+    const csvRows = [headers.join(',')];
+
+    products.forEach(p => {
+      const escapeCell = (val) => {
+        if (val === null || val === undefined) return '""';
+        const str = String(val).replace(/"/g, '""');
+        return `"${str}"`;
+      };
+
+      const formattedId = `"\t${p.id || p._id || ''}"`;
+      const imagesString = Array.isArray(p.images) ? p.images.join('|') : (p.images || '');
+
+      const row = [
+        formattedId,
+        escapeCell(p.name || ''),
+        escapeCell(p.price || 0),
+        escapeCell(p.category || 'Cleaning'),
+        escapeCell(p.stock || 0),
+        escapeCell(p.featured ? 'TRUE' : 'FALSE'),
+        escapeCell(p.image || ''),
+        escapeCell(imagesString),
+        escapeCell(p.description || '')
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    const blob = new Blob(['\uFEFF' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `karam_inventory_backup_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // --- ROBUST & CLEAN CSV IMPORT PARSER ---
+  const handleImportInventory = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.readAsText(file, 'UTF-8');
+    
+    reader.onload = (event) => {
+      const text = event.target.result;
+      const lines = text.split(/\r\n|\n/);
+      if (lines.length < 2) {
+        alert('Invalid CSV file format.');
+        return;
+      }
+
+      const parseLine = (line) => {
+        const row = [];
+        let inQuotes = false;
+        let currentField = '';
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+              currentField += '"';
+              i++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (char === ',' && !inQuotes) {
+            row.push(currentField.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
+            currentField = '';
+          } else {
+            currentField += char;
+          }
+        }
+        row.push(currentField.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
+        return row;
+      };
+
+      const parsedProducts = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        const row = parseLine(line).filter(cell => cell !== '');
+        if (row.length < 2) continue;
+
+        let priceIndex = row.findIndex(cell => !isNaN(cell) && Number(cell) > 0);
+        if (priceIndex === -1) continue;
+
+        const price = parseFloat(row[priceIndex]) || 0.0;
+        const name = priceIndex > 0 ? row[priceIndex - 1] : 'Product';
+        const category = priceIndex + 1 < row.length ? row[priceIndex + 1] : 'Cleaning';
+        const stock = parseInt(row[priceIndex + 2]) || 10;
+        const featured = row.some(cell => String(cell).toUpperCase() === 'TRUE');
+        const image = row.find(cell => String(cell).startsWith('http') || String(cell).startsWith('data:image')) || '';
+
+        parsedProducts.push({
+          name: isNaN(name) ? name : 'Product',
+          price: price,
+          category: isNaN(category) ? category : 'Cleaning',
+          stock: !isNaN(stock) ? stock : 10,
+          featured: featured,
+          image: image,
+          images: [],
+          description: ''
+        });
+      }
+
+      if (window.confirm(`Successfully parsed ${parsedProducts.length} valid products from CSV. Upload them to the database now?`)) {
+        let successCount = 0;
+        parsedProducts.forEach(prod => {
+          fetch('https://karamstores.onrender.com/api/products', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(prod)
+          })
+            .then(res => {
+              if (res.ok) successCount++;
+              if (successCount === parsedProducts.length) {
+                alert('Inventory successfully imported!');
+                fetchData();
+              }
+            })
+            .catch(err => console.error('Import error:', err));
+        });
+      }
+    };
+  };
+
+  // --- PRODUCT FORM SAVING ---
+  const handleSaveProduct = (e) => {
+    e.preventDefault();
+    const extraImagesArray = formImagesInput ? formImagesInput.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+    const productData = {
+      name: formName,
+      price: parseFloat(formPrice),
+      category: formCategory,
+      image: formImage,
+      images: extraImagesArray,
+      stock: parseInt(formStock) || 0,
+      featured: formFeatured,
+      description: formDescription
+    };
+
+    const url = editingId 
+      ? `https://karamstores.onrender.com/api/products/${editingId}`
+      : 'https://karamstores.onrender.com/api/products';
+    
+    const method = editingId ? 'PUT' : 'POST';
+
+    fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(productData)
+    })
+      .then(res => res.json())
+      .then(() => {
+        resetProductForm();
+        fetchData();
+        alert(editingId ? 'Product updated successfully!' : 'Product added successfully!');
+      })
+      .catch(err => console.error('Error saving product:', err));
+  };
+
+  const startEditProduct = (prod) => {
+    setEditingId(prod.id || prod._id);
+    setFormName(prod.name || '');
+    setFormPrice(prod.price || '');
+    setFormCategory(prod.category || 'Cleaning');
+    setFormImage(prod.image || '');
+    setFormImagesInput(Array.isArray(prod.images) ? prod.images.join(', ') : '');
+    setFormStock(prod.stock !== undefined ? String(prod.stock) : '10');
+    setFormFeatured(prod.featured || false);
+    setFormDescription(prod.description || '');
+    setIsAddingProduct(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const resetProductForm = () => {
+    setEditingId(null);
+    setFormName('');
+    setFormPrice('');
+    setFormCategory('Cleaning');
+    setFormImage('');
+    setFormImagesInput('');
+    setFormStock('10');
+    setFormFeatured(false);
+    setFormDescription('');
+    setIsAddingProduct(false);
+  };
+
+  const handleDeleteProduct = (id) => {
+    if (!window.confirm('Are you sure you want to delete this product?')) return;
+    fetch(`https://karamstores.onrender.com/api/products/${id}`, { method: 'DELETE' })
+      .then(() => fetchData())
+      .catch(err => console.error('Error deleting product:', err));
+  };
+
+  const handleUpdateOrderStatus = (orderId, newStatus) => {
+    fetch(`https://karamstores.onrender.com/api/orders/${orderId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus })
+    })
+      .then(res => res.json())
+      .then(() => fetchData())
+      .catch(err => console.error('Error updating order status:', err));
+  };
+
+  const handleSaveEditedOrder = (e) => {
+    e.preventDefault();
+    if (!editingOrder) return;
+    const ordId = editingOrder.id || editingOrder._id;
+    const updatedCustomer = {
+      ...(editingOrder.customer || {}),
+      phone1: editPhone,
+      manualAddress: editAddress
+    };
+
+    fetch(`https://karamstores.onrender.com/api/orders/${ordId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customer: updatedCustomer, phone: editPhone, address: editAddress })
+    })
+      .then(res => res.json())
+      .then(() => {
+        setEditingOrder(null);
+        fetchData();
+        alert('Order updated successfully!');
+      })
+      .catch(err => console.error('Error updating order:', err));
+  };
+
+  const handleUpdateSettings = (e) => {
+    e.preventDefault();
+    fetch('https://karamstores.onrender.com/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deliveryFee: parseFloat(newFee), discountCodes: settings.discountCodes })
+    })
+      .then(res => res.json())
+      .then(data => {
+        setSettings(data);
+        alert('Store settings updated successfully!');
+      })
+      .catch(err => console.error('Error updating settings:', err));
+  };
+
+  const handleAddPromoCode = () => {
+    if (!newPromoCode.trim() || !newPromoVal) return;
+    const updatedCodes = { ...settings.discountCodes, [newPromoCode.trim().toUpperCase()]: parseFloat(newPromoVal) };
+    
+    fetch('https://karamstores.onrender.com/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deliveryFee: settings.deliveryFee, discountCodes: updatedCodes })
+    })
+      .then(res => res.json())
+      .then(data => {
+        setSettings(data);
+        setNewPromoCode('');
+        setNewPromoVal('');
+        alert('Discount code added!');
+      });
+  };
+
+  const handleRemovePromoCode = (codeKey) => {
+    const updatedCodes = { ...settings.discountCodes };
+    delete updatedCodes[codeKey];
+
+    fetch('https://karamstores.onrender.com/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deliveryFee: settings.deliveryFee, discountCodes: updatedCodes })
+    })
+      .then(res => res.json())
+      .then(data => setSettings(data));
+  };
+
+  const sortedOrders = useMemo(() => {
+    return [...orders].sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.id || 0).getTime();
+      const timeB = new Date(b.createdAt || b.id || 0).getTime();
+      return timeB - timeA;
+    }).filter(ord => {
+      const matchesStatus = orderStatusFilter === 'ALL' || (ord.status || 'Pending').toUpperCase() === orderStatusFilter.toUpperCase();
+      const query = orderSearchQuery.toLowerCase();
+      const customerName = (ord.customer?.arabicName || ord.arabicName || '').toLowerCase();
+      const customerPhone = (ord.customer?.phone1 || ord.phone || '').toLowerCase();
+      const orderIdStr = String(ord.id || ord._id || '').toLowerCase();
+      const matchesSearch = !query || customerName.includes(query) || customerPhone.includes(query) || orderIdStr.includes(query);
+      return matchesStatus && matchesSearch;
+    });
+  }, [orders, orderStatusFilter, orderSearchQuery]);
+
+  const lowStockProducts = useMemo(() => {
+    return products.filter(p => (p.stock !== undefined ? p.stock : 10) <= 3);
+  }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    return products.filter(p => {
+      const matchesCat = productCategoryFilter === 'ALL' || (p.category || '').toLowerCase() === productCategoryFilter.toLowerCase();
+      const matchesQuery = !productSearchQuery || (p.name || '').toLowerCase().includes(productSearchQuery.toLowerCase());
+      return matchesCat && matchesQuery;
+    });
+  }, [products, productSearchQuery, productCategoryFilter]);
+
+  const totalRevenue = orders.reduce((sum, ord) => sum + Number(ord.grandTotal || ord.total || 0), 0);
+
   return (
-    <div style={{ padding: '2rem', background: '#1c1b1b', color: '#FFF7EE' }}>
-      {/* All admin dashboard UI */}
+    <div style={{ padding: '2rem', background: '#1c1b1b', color: '#FFF7EE', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
+      
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,247,238,0.2)', paddingBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: '1.8rem', color: '#FD7100' }}>Karam Stores Admin</h1>
+          <p style={{ margin: '0.2rem 0 0 0', opacity: 0.7, fontSize: '0.9rem' }}>Enterprise Control Center ({products.length} Items Loaded)</p>
+        </div>
+        
+        <div style={{ display: 'flex', gap: '1.5rem', background: '#2D2C2C', padding: '0.8rem 1.2rem', borderRadius: '10px', border: '1px solid rgba(255,247,238,0.1)' }}>
+          <div>
+            <span style={{ fontSize: '0.75rem', opacity: 0.7, display: 'block' }}>Total Orders</span>
+            <strong style={{ fontSize: '1.1rem' }}>{orders.length}</strong>
+          </div>
+          <div style={{ borderLeft: '1px solid rgba(255,247,238,0.2)', paddingLeft: '1.5rem' }}>
+            <span style={{ fontSize: '0.75rem', opacity: 0.7, display: 'block' }}>Total Revenue</span>
+            <strong style={{ fontSize: '1.1rem', color: '#4ade80' }}>{totalRevenue.toFixed(2)} JD</strong>
+          </div>
+          <div style={{ borderLeft: '1px solid rgba(255,247,238,0.2)', paddingLeft: '1.5rem' }}>
+            <span style={{ fontSize: '0.75rem', opacity: 0.7, display: 'block' }}>Low Stock Alerts</span>
+            <strong style={{ fontSize: '1.1rem', color: lowStockProducts.length > 0 ? '#ef4444' : '#4ade80' }}>{lowStockProducts.length}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
+        <button onClick={() => setActiveTab('orders')} style={{ padding: '0.7rem 1.2rem', background: activeTab === 'orders' ? '#FD7100' : '#2D2C2C', color: '#FFF7EE', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+          📋 Orders ({orders.length})
+        </button>
+        <button onClick={() => setActiveTab('inventory')} style={{ padding: '0.7rem 1.2rem', background: activeTab === 'inventory' ? '#FD7100' : '#2D2C2C', color: '#FFF7EE', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+          📦 Inventory & 14k Backup ({products.length})
+        </button>
+        <button onClick={() => setActiveTab('settings')} style={{ padding: '0.7rem 1.2rem', background: activeTab === 'settings' ? '#FD7100' : '#2D2C2C', color: '#FFF7EE', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+          ⚙️ Store Settings & Promos
+        </button>
+      </div>
+
+      {activeTab === 'orders' && (
+        <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <h3 style={{ margin: 0, color: '#FD7100' }}>📋 Customer Orders (Newest First)</h3>
+            
+            <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
+              <input 
+                type="text" 
+                placeholder="Search by name, phone, ID..." 
+                value={orderSearchQuery} 
+                onChange={e => setOrderSearchQuery(e.target.value)}
+                style={{ padding: '0.5rem 0.8rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', fontSize: '0.85rem' }}
+              />
+              <select 
+                value={orderStatusFilter} 
+                onChange={e => setOrderStatusFilter(e.target.value)}
+                style={{ padding: '0.5rem 0.8rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', fontWeight: 'bold', fontSize: '0.85rem' }}
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Processing">Processing</option>
+                <option value="Shipped">Shipped</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+            </div>
+          </div>
+          
+          {sortedOrders.length === 0 ? (
+            <p style={{ opacity: 0.6, textAlign: 'center', padding: '2rem 0' }}>No matching orders found.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {sortedOrders.map(ord => {
+                const ordId = ord.id || ord._id;
+                const statusColor = ord.status === 'Shipped' || ord.status === 'Delivered' ? '#4ade80' : ord.status === 'Processing' ? '#facc15' : '#60a5fa';
+                return (
+                  <div key={ordId} style={{ background: '#242323', padding: '1.2rem', borderRadius: '10px', border: '1px solid rgba(255,247,238,0.15)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', borderBottom: '1px solid rgba(255,247,238,0.1)', paddingBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <div>
+                        <strong style={{ fontSize: '1rem', color: '#FD7100' }}>Order #{ordId}</strong>
+                        <span style={{ display: 'block', fontSize: '0.75rem', opacity: 0.6 }}>{new Date(ord.createdAt || Date.now()).toLocaleString()}</span>
+                      </div>
+                      
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                        <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem', borderRadius: '10px', border: `1px solid ${statusColor}`, color: statusColor, fontWeight: 'bold' }}>{ord.status || 'Pending'}</span>
+                        <select 
+                          value={ord.status || 'Pending'} 
+                          onChange={e => handleUpdateOrderStatus(ordId, e.target.value)}
+                          style={{ padding: '0.3rem 0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', fontWeight: 'bold', fontSize: '0.8rem' }}
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="Processing">Processing</option>
+                          <option value="Shipped">Shipped</option>
+                          <option value="Delivered">Delivered</option>
+                          <option value="Cancelled">Cancelled</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {ord.customer && (
+                      <div style={{ fontSize: '0.85rem', marginBottom: '0.8rem', opacity: 0.9, background: 'rgba(255,247,238,0.03)', padding: '0.6rem', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <div>
+                          <p style={{ margin: '0 0 0.2rem 0' }}>👤 <strong>Name:</strong> {ord.customer.arabicName}</p>
+                          <p style={{ margin: '0 0 0.2rem 0' }}>📞 <strong>Phone:</strong> {ord.customer.phone1}</p>
+                          <p style={{ margin: 0 }}>📍 <strong>Address:</strong> {ord.customer.manualAddress}</p>
+                        </div>
+                        <button onClick={() => { setEditingOrder(ord); setEditPhone(ord.customer.phone1 || ''); setEditAddress(ord.customer.manualAddress || ''); }} style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                          ✏️ Edit Order
+                        </button>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>
+                        Items count: <strong>{ord.items ? ord.items.reduce((s, i) => s + i.quantity, 0) : 0}</strong>
+                      </span>
+                      <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 'bold', color: '#FD7100', fontSize: '0.95rem' }}>
+                          Total: {Number(ord.grandTotal || ord.total || 0).toFixed(2)} JD
+                        </span>
+                        <button onClick={() => setSelectedOrder(ord)} style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                          🔍 Full Transaction View
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'inventory' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+            <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
+              <h3 style={{ margin: '0 0 0.5rem 0', color: '#FD7100', fontSize: '1.1rem' }}>💾 14k+ Inventory Backup & Safety</h3>
+              <p style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', opacity: 0.7, lineHeight: '1.4' }}>
+                Export your entire product catalog as a clean CSV backup file, or restore items instantly if the server ever resets.
+              </p>
+              <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
+                <button onClick={handleExportInventory} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
+                  📥 Export Inventory (CSV)
+                </button>
+                <label style={{ background: '#3b82f6', color: '#fff', padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-block' }}>
+                  📤 Import CSV Backup
+                  <input type="file" accept=".csv" onChange={handleImportInventory} style={{ display: 'none' }} />
+                </label>
+              </div>
+            </div>
+
+            <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
+              <h3 style={{ margin: '0 0 0.5rem 0', color: '#ef4444', fontSize: '1.1rem' }}>⚠️ Low Stock Monitor ({lowStockProducts.length})</h3>
+              <p style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', opacity: 0.7, lineHeight: '1.4' }}>
+                Products running low or out of stock (Stock ≤ 3) that need restocked immediately.
+              </p>
+              <div style={{ maxHeight: '100px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                {lowStockProducts.length === 0 ? (
+                  <span style={{ fontSize: '0.85rem', color: '#4ade80' }}>All products are well stocked!</span>
+                ) : (
+                  lowStockProducts.map(p => (
+                    <div key={p.id || p._id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', background: '#242323', padding: '0.3rem 0.6rem', borderRadius: '4px' }}>
+                      <span>{p.name}</span>
+                      <strong style={{ color: '#ef4444' }}>Stock: {p.stock}</strong>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <h3 style={{ margin: 0, color: '#FD7100' }}>📦 Manage Catalog ({filteredProducts.length} items shown)</h3>
+              
+              <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <button onClick={() => { resetProductForm(); setIsAddingProduct(true); }} style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
+                  ➕ Add New Product Manually
+                </button>
+                <input 
+                  type="text" 
+                  placeholder="Search items by name..." 
+                  value={productSearchQuery} 
+                  onChange={e => setProductSearchQuery(e.target.value)}
+                  style={{ padding: '0.5rem 0.8rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', fontSize: '0.85rem', width: '200px' }}
+                />
+                <select 
+                  value={productCategoryFilter} 
+                  onChange={e => setProductCategoryFilter(e.target.value)}
+                  style={{ padding: '0.5rem 0.8rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', fontWeight: 'bold', fontSize: '0.85rem' }}
+                >
+                  <option value="ALL">All Categories</option>
+                  <option value="Cleaning">Cleaning</option>
+                  <option value="Furniture">Furniture</option>
+                  <option value="Makeup">Makeup</option>
+                  <option value="Gifts">Gifts</option>
+                  <option value="Kitchen">Kitchen</option>
+                </select>
+              </div>
+            </div>
+
+            {isAddingProduct && (
+              <div style={{ background: '#242323', padding: '1.5rem', borderRadius: '10px', marginBottom: '1.5rem', border: '1px solid #FD7100' }}>
+                <h4 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>{editingId ? `✏️ Edit Product ID: ${editingId}` : '➕ Add New Product Manually'}</h4>
+                <form onSubmit={handleSaveProduct} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Product Name *</label>
+                    <input type="text" value={formName} onChange={e => setFormName(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Price (JD) *</label>
+                    <input type="number" step="0.01" value={formPrice} onChange={e => setFormPrice(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Category *</label>
+                    <select value={formCategory} onChange={e => setFormCategory(e.target.value)} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }}>
+                      <option value="Cleaning">Cleaning</option>
+                      <option value="Furniture">Furniture</option>
+                      <option value="Makeup">Makeup</option>
+                      <option value="Gifts">Gifts</option>
+                      <option value="Kitchen">Kitchen</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Stock Quantity</label>
+                    <input type="number" value={formStock} onChange={e => setFormStock(e.target.value)} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Main Image URL</label>
+                    <input type="text" value={formImage} onChange={e => setFormImage(e.target.value)} placeholder="/icons/... or https://..." style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Extra Images URLs (Comma-separated for multiple images)</label>
+                    <input type="text" value={formImagesInput} onChange={e => setFormImagesInput(e.target.value)} placeholder="https://img1.com/a.jpg, https://img2.com/b.jpg" style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Description</label>
+                    <textarea value={formDescription} onChange={e => setFormDescription(e.target.value)} rows="2" style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                  </div>
+                  <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <input type="checkbox" id="featuredCheck" checked={formFeatured} onChange={e => setFormFeatured(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: '#FD7100' }} />
+                    <label htmlFor="featuredCheck" style={{ fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}>⭐ Pin as Featured Product on Top Banner</label>
+                  </div>
+                  <div style={{ gridColumn: 'span 2', display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                    <button type="submit" style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem 1.5rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>{editingId ? 'Update Product' : 'Save Product'}</button>
+                    <button type="button" onClick={resetProductForm} style={{ background: '#555', color: '#FFF7EE', border: 'none', padding: '0.7rem 1.2rem', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
+              {filteredProducts.slice(0, 30).map(prod => (
+                <div key={prod.id || prod._id} style={{ background: '#242323', padding: '0.9rem', borderRadius: '8px', border: '1px solid rgba(255,247,238,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem' }}>
+                      <span style={{ fontSize: '0.65rem', background: 'rgba(253,113,0,0.2)', color: '#FD7100', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 'bold' }}>{prod.category}</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: prod.stock <= 3 ? '#ef4444' : '#4ade80' }}>Stock: {prod.stock}</span>
+                    </div>
+                    <h4 style={{ margin: '0 0 0.3rem 0', fontSize: '0.9rem' }}>{prod.name}</h4>
+                    <p style={{ margin: '0 0 0.4rem 0', fontWeight: 'bold', color: '#FD7100', fontSize: '0.9rem' }}>{Number(prod.price).toFixed(2)} JD</p>
+                    {prod.images && prod.images.length > 0 && (
+                      <span style={{ fontSize: '0.7rem', opacity: 0.7, display: 'block', marginBottom: '0.4rem' }}>📷 {prod.images.length + 1} images attached</span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <button onClick={() => startEditProduct(prod)} style={{ flex: 1, background: '#3b82f6', color: '#fff', border: 'none', padding: '0.35rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Edit</button>
+                    <button onClick={() => handleDeleteProduct(prod.id || prod._id)} style={{ flex: 1, background: '#ef4444', color: '#fff', border: 'none', padding: '0.35rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {filteredProducts.length > 30 && (
+              <p style={{ textAlign: 'center', opacity: 0.6, fontSize: '0.8rem', marginTop: '1rem' }}>Showing first 30 results matching filter (out of {filteredProducts.length} total filtered items). Use search to narrow down.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'settings' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
+          <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>🚚 Delivery Fee Configuration</h3>
+            <form onSubmit={handleUpdateSettings} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.85rem', fontWeight: 'bold', display: 'block', marginBottom: '0.4rem' }}>Standard Delivery Fee (JD)</label>
+                <input type="number" step="0.50" value={newFee} onChange={e => setNewFee(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE' }} />
+              </div>
+              <button type="submit" style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Update Delivery Fee</button>
+            </form>
+          </div>
+
+          <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>🎟️ Discount & Promo Codes</h3>
+            
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+              <input type="text" placeholder="Code (e.g. KARAM10)" value={newPromoCode} onChange={e => setNewPromoCode(e.target.value)} style={{ flex: 1, padding: '0.5rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', textTransform: 'uppercase' }} />
+              <input type="number" step="0.05" placeholder="Value" value={newPromoVal} onChange={e => setNewPromoVal(e.target.value)} style={{ width: '100px', padding: '0.5rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE' }} />
+              <button type="button" onClick={handleAddPromoCode} style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Add</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '200px', overflowY: 'auto' }}>
+              {Object.keys(settings.discountCodes || {}).length === 0 ? (
+                <p style={{ opacity: 0.6, fontSize: '0.85rem' }}>No active promo codes.</p>
+              ) : (
+                Object.entries(settings.discountCodes).map(([code, val]) => (
+                  <div key={code} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#242323', padding: '0.5rem 0.8rem', borderRadius: '6px' }}>
+                    <span style={{ fontWeight: 'bold', color: '#4ade80' }}>{code} ({val < 1 ? `${val * 100}% off` : `${val} JD off`})</span>
+                    <button onClick={() => handleRemovePromoCode(code)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Remove</button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedOrder && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '1rem' }}>
+          <div style={{ background: '#2D2C2C', border: '1px solid rgba(255,247,238,0.2)', borderRadius: '14px', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', color: '#FFF7EE' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,247,238,0.2)', paddingBottom: '0.8rem', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0, color: '#FD7100' }}>🔍 Full Transaction Receipt #{selectedOrder.id || selectedOrder._id}</h3>
+              <button onClick={() => setSelectedOrder(null)} style={{ background: 'transparent', border: 'none', color: '#FFF7EE', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <div style={{ fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+              <div style={{ background: '#242323', padding: '0.8rem', borderRadius: '8px' }}>
+                <p style={{ margin: '0 0 0.3rem 0' }}>📅 <strong>Timestamp:</strong> {new Date(selectedOrder.createdAt || Date.now()).toLocaleString()}</p>
+                <p style={{ margin: '0 0 0.3rem 0' }}>📌 <strong>Status:</strong> {selectedOrder.status || 'Pending'}</p>
+                <p style={{ margin: '0 0 0.3rem 0' }}>💳 <strong>Payment Method:</strong> Cash on Delivery (الدفع عند الاستلام)</p>
+              </div>
+
+              {selectedOrder.customer && (
+                <div style={{ background: '#242323', padding: '0.8rem', borderRadius: '8px' }}>
+                  <p style={{ margin: '0 0 0.3rem 0' }}>👤 <strong>Customer Name:</strong> {selectedOrder.customer.arabicName}</p>
+                  <p style={{ margin: '0 0 0.3rem 0' }}>📞 <strong>Phone Number:</strong> {selectedOrder.customer.phone1}</p>
+                  <p style={{ margin: 0 }}>📍 <strong>Delivery Address:</strong> {selectedOrder.customer.manualAddress}</p>
+                </div>
+              )}
+
+              <div>
+                <strong>Ordered Line Items:</strong>
+                <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  {selectedOrder.items && selectedOrder.items.map((item, idx) => (
+                    <div key={idx} style={{ background: '#242323', padding: '0.6rem', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <span style={{ fontWeight: 'bold' }}>{item.name}</span>
+                        <span style={{ display: 'block', fontSize: '0.75rem', opacity: 0.7 }}>
+                          {item.selectedSize ? `Size: ${item.selectedSize} ` : ''} {item.selectedColor ? `Color: ${item.selectedColor}` : ''} (Qty: {item.quantity})
+                        </span>
+                      </div>
+                      <span style={{ fontWeight: 'bold', color: '#FD7100' }}>{(item.price * item.quantity).toFixed(2)} JD</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ background: '#242323', padding: '0.8rem', borderRadius: '8px', borderTop: '1px solid rgba(255,247,238,0.2)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                  <span>Subtotal:</span>
+                  <span>{Number(selectedOrder.total || 0).toFixed(2)} JD</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+                  <span>Delivery Fee:</span>
+                  <span>{Number(selectedOrder.deliveryFee || 2.00).toFixed(2)} JD</span>
+                </div>
+                {selectedOrder.discountAmount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', color: '#4ade80' }}>
+                    <span>Discount Applied:</span>
+                    <span>-{Number(selectedOrder.discountAmount).toFixed(2)} JD</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '1.05rem', color: '#FD7100', marginTop: '0.4rem', borderTop: '1px solid rgba(255,247,238,0.2)', paddingTop: '0.4rem' }}>
+                  <span>Grand Total (Cash):</span>
+                  <span>{Number(selectedOrder.grandTotal || selectedOrder.total || 0).toFixed(2)} JD</span>
+                </div>
+              </div>
+            </div>
+
+            <button onClick={() => setSelectedOrder(null)} style={{ width: '100%', background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', marginTop: '1.2rem' }}>Close Receipt</button>
+          </div>
+        </div>
+      )}
+
+      {editingOrder && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '1rem' }}>
+          <div style={{ background: '#2D2C2C', border: '1px solid rgba(255,247,238,0.2)', borderRadius: '14px', width: '100%', maxWidth: '450px', padding: '1.5rem', color: '#FFF7EE' }}>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>✏️ Edit Order #{editingOrder.id || editingOrder._id}</h3>
+            
+            <form onSubmit={handleSaveEditedOrder} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Customer Phone Number</label>
+                <input type="text" value={editPhone} onChange={e => setEditPhone(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Delivery Address</label>
+                <textarea value={editAddress} onChange={e => setEditAddress(e.target.value)} rows="3" required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE' }} />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.5rem' }}>
+                <button type="submit" style={{ flex: 1, background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Save Changes</button>
+                <button type="button" onClick={() => setEditingOrder(null)} style={{ flex: 1, background: '#555', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -47,1021 +819,5 @@ export default function AdminGate() {
     );
   }
 
-  // Once unlocked, render the full admin dashboard
   return <AdminDashboard />;
-}
-
-const translations = {
-  en: {
-    storeName: "Karam Stores",
-    trackOrders: "My Past Orders",
-    cart: "Cart",
-    searchPlaceholder: "Search store products...",
-    completeCatalog: "Complete Product Catalog",
-    categoryCatalog: "Category Products",
-    allCategoriesFilter: "All Categories",
-    filterByCat: "Filter by Category:",
-    searchResults: "Search Results for",
-    backToCatalog: "← Back to Store Catalog",
-    selectSize: "Select Size:",
-    selectColor: "Select Color:",
-    addToCart: "Add to Cart",
-    outOfStock: "Out of Stock",
-    similarOptions: "Similar Options in",
-    viewDetails: "View Details",
-    cartReview: "Your Shopping Cart & Review",
-    emptyCart: "Your cart is empty.",
-    subtotal: "Subtotal:",
-    deliveryFeeLabel: "Estimated Delivery Fee:",
-    discountLabel: "Discount Code:",
-    applyPromo: "Apply",
-    totalAmount: "Total Amount:",
-    orderNow: "Order Now!",
-    whatsappCheckout: "💬 Order via WhatsApp",
-    customerInfo: "Customer Delivery & Information",
-    arabicNameLabel: "Full Name in Arabic (الاسم الكامل بالعربية) *",
-    arabicNamePlaceholder: "مثال: محمد أحمد علي",
-    phoneLabel: "Phone Number (10 digits) *",
-    phonePlaceholder: "07XXXXXXXX",
-    manualAddressLabel: "Manual Delivery Address (City, Street, Building) *",
-    manualAddressPlaceholder: "Enter detailed delivery address...",
-    obligatory: "(Obligatory)",
-    paymentMethod: "Payment Method",
-    cashOnDelivery: "Cash on Delivery (الدفع عند الاستلام)",
-    backToCart: "Back to Cart",
-    reviewOrder: "Submit Order",
-    pastOrdersTitle: "Track My Orders & Receipts",
-    lookupPrompt: "Enter your 10-digit phone number to view your order history:",
-    lookupBtn: "Search Orders",
-    noPastOrders: "No orders found for this phone number.",
-    orderId: "Order ID:",
-    status: "Status:",
-    totalDue: "Total Due:",
-    hideReceipt: "Hide Receipt",
-    viewReceipt: "View Receipt",
-    officialReceipt: "Official Order Receipt",
-    nameArabic: "Name (العربية):",
-    phones: "Phone:",
-    address: "Address:",
-    orderedItems: "Ordered Items:",
-    deliveryFee: "Delivery Price:",
-    totalToPay: "Total Amount to Pay (Cash):",
-    close: "Close",
-    printReceipt: "🖨️ Print Receipt",
-    catCleaning: "Cleaning",
-    catFurniture: "houseware",
-    catMakeup: "Makeup",
-    catGifts: "Gifts",
-    catKitchen: "Kitchen",
-    catMore: "More",
-    navHome: "Home",
-    navSearch: "Search",
-    navCart: "Cart",
-    navOrders: "Orders",
-    storeInfoTitle: "Store Information & Delivery",
-    storeHours: "Working Hours: 9:00 AM - 10:00 PM (Daily)",
-    storeLocation: "Location: Amman, Jordan (Cash on Delivery Available)",
-    storeSupport: "Customer Service: 0781794172"
-  },
-  ar: {
-    storeName: "كرم ستورز",
-    trackOrders: "طلباتي",
-    cart: "السلة",
-    searchPlaceholder: "ابحث عن منتجات المتجر...",
-    completeCatalog: "كتالوج المنتجات الكامل",
-    categoryCatalog: "منتجات الفئة",
-    allCategoriesFilter: "جميع الفئات",
-    filterByCat: "تصفية حسب الفئة:",
-    searchResults: "نتائج البحث عن",
-    backToCatalog: "← العودة إلى الكتالوج",
-    selectSize: "اختر المقاس:",
-    selectColor: "اختر اللون:",
-    addToCart: "أضف إلى السلة",
-    outOfStock: "غير متوفر في المخزون",
-    similarOptions: "خيارات مشابهة في",
-    viewDetails: "عرض التفاصيل",
-    cartReview: "سلة التسوق والمراجعة",
-    emptyCart: "سلة التسوق فارغة.",
-    subtotal: "المجموع الفرعي:",
-    deliveryFeeLabel: "رسوم التوصيل المقدرة:",
-    discountLabel: "كود الخصم:",
-    applyPromo: "تطبيق",
-    totalAmount: "المبلغ الإجمالي:",
-    orderNow: "اطلب الان!",
-    whatsappCheckout: "💬 اطلب عبر واتساب",
-    customerInfo: "معلومات العميل والتوصيل",
-    arabicNameLabel: "الاسم الكامل بالعربية *",
-    arabicNamePlaceholder: "مثال: محمد أحمد علي",
-    phoneLabel: "رقم الهاتف (10 أرقام) *",
-    phonePlaceholder: "07XXXXXXXX",
-    manualAddressLabel: "عنوان التوصيل اليدوي (المدينة، الشارع، المبنى) *",
-    manualAddressPlaceholder: "أدخل تفاصيل عنوان التوصيل...",
-    obligatory: "(إلزامي)",
-    paymentMethod: "طريقة الدفع",
-    cashOnDelivery: "الدفع عند الاستلام",
-    backToCart: "العودة إلى السلة",
-    reviewOrder: "إرسال الطلب",
-    pastOrdersTitle: "تتبع طلباتي والإيصالات",
-    lookupPrompt: "أدخل رقم هاتفك المكون من 10 أرقام لعرض سجل طلباتك:",
-    lookupBtn: "بحث عن الطلبات",
-    noPastOrders: "لم يتم العثور على طلبات سابقة لهذا الرقم.",
-    orderId: "رقم الطلب:",
-    status: "الحالة:",
-    totalDue: "المبلغ المستحق:",
-    hideReceipt: "إخفاء الإيصال",
-    viewReceipt: "عرض الإيصال",
-    officialReceipt: "إيصال الطلب الرسمي",
-    nameArabic: "Name (العربية):",
-    phones: "رقم الهاتف:",
-    address: "العنوان:",
-    orderedItems: "المنتجات المطلوبة:",
-    deliveryFee: "سعر التوصيل:",
-    totalToPay: "المبلغ الإجمالي للدفع (نقداً):",
-    close: "إغلاق",
-    printReceipt: "🖨️ طباعة الإيصال",
-    catCleaning: "التنظيف",
-    catFurniture: "الأثاث",
-    catMakeup: "مكياج",
-    catGifts: "هدايا",
-    catKitchen: "المطبخ",
-    catMore: "المزيد",
-    navHome: "الرئيسية",
-    navSearch: "البحث",
-    navCart: "السلة",
-    navOrders: "الطلبات",
-    storeInfoTitle: "معلومات المتجر والتوصيل",
-    storeHours: "ساعات العمل: 9:00 صباحاً - 10:00 مساءً (يومياً)",
-    storeLocation: "الموقع: عمان، الأردن (متوفر الدفع عند الاستلام)",
-    storeSupport: "خدمة العملاء: 0781794172"
-  }
-};
-
-export default function StoreApp() {
-  const [products, setProducts] = useState([]);
-  const [cart, setCart] = useState([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [isOrderHistoryOpen, setIsOrderHistoryOpen] = useState(false);
-  
-  const [catalogSearch, setCatalogSearch] = useState('');
-  const [submittedSearchQuery, setSubmittedSearchQuery] = useState('');
-  const [isSearchOpen, setIsSearchOpen] = useState(false); 
-  const [selectedCategoryView, setSelectedCategoryView] = useState(null);
-  const [isMoreCatalogOpen, setIsMoreCatalogOpen] = useState(false);
-  const [selectedFilterCategory, setSelectedFilterCategory] = useState('All');
-
-  const [lang, setLang] = useState('ar'); 
-  const [storeSettings, setStoreSettings] = useState({ deliveryFee: 2.00, discountCodes: {} });
-  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-
-  const triggerToast = (message, type = 'success') => {
-    setToast({ show: true, message, type });
-    setTimeout(() => {
-      setToast(prev => ({ ...prev, show: false }));
-    }, 4000);
-  };
-  
-  const t = translations[lang];
-  const isRtl = lang === 'ar';
-
-  const [promoInput, setPromoInput] = useState('');
-  const [appliedPromoCode, setAppliedPromoCode] = useState(null);
-  const [discountValue, setDiscountValue] = useState(0);
-
-  const [checkoutMessage, setCheckoutMessage] = useState('');
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [selectedSize, setSelectedSize] = useState('');
-  const [selectedColor, setSelectedColor] = useState('');
-  const [activeImage, setActiveImage] = useState('');
-
-  const [arabicName, setArabicName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [manualAddress, setManualAddress] = useState('');
-  const [paymentMethod] = useState('Cash');
-
-  const [allOrders, setAllOrders] = useState([]);
-  const [expandedReceiptId, setExpandedReceiptId] = useState(null);
-  const [lookupPhone, setLookupPhone] = useState(localStorage.getItem('user_phone') || '');
-
-  const fetchProducts = () => {
-    fetch('https://karamstores.onrender.com/api/products')
-      .then(res => res.json())
-      .then(data => setProducts(data))
-      .catch(err => console.error('Error fetching products:', err));
-  };
-
-  const fetchOrders = () => {
-    fetch('https://karamstores.onrender.com/api/orders')
-      .then(res => res.json())
-      .then(data => setAllOrders(data))
-      .catch(err => console.error('Error fetching orders:', err));
-  };
-
-  const fetchSettings = () => {
-    fetch('https://karamstores.onrender.com/api/settings')
-      .then(res => res.json())
-      .then(data => setStoreSettings(data))
-      .catch(err => console.error('Error fetching settings:', err));
-  };
-
-  useEffect(() => {
-    fetchProducts();
-    fetchOrders();
-    fetchSettings();
-  }, []);
-
-  const openProductDetails = (product) => {
-    setSelectedProduct(product);
-    setSelectedCategoryView(null);
-    setIsMoreCatalogOpen(false);
-    setSubmittedSearchQuery('');
-    setIsSearchOpen(false);
-    setActiveImage(product.image || (product.images && product.images[0]) || '');
-    setSelectedSize(product.sizes && product.sizes.length > 0 ? product.sizes[0] : '');
-    setSelectedColor(product.colors && product.colors.length > 0 ? product.colors[0] : '');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const addToCartFromDetails = () => {
-    if (!selectedProduct) return;
-    addToCart({ ...selectedProduct, selectedSize, selectedColor });
-    triggerToast(lang === 'ar' ? 'تمت إضافة المنتج إلى السلة بنجاح!' : 'Product added to cart successfully!');
-  };
-
-  const addToCart = (product) => {
-    setCart(prev => {
-      const pId = product.id || product._id;
-      const existing = prev.find(item => (item.id || item._id) === pId && item.selectedSize === product.selectedSize && item.selectedColor === product.selectedColor);
-      if (existing) {
-        return prev.map(item => 
-          ((item.id || item._id) === pId && item.selectedSize === product.selectedSize && item.selectedColor === product.selectedColor)
-            ? { ...item, quantity: item.quantity + 1 } 
-            : item
-        );
-      }
-      return [...prev, { ...product, quantity: 1 }];
-    });
-  };
-
-  const updateQuantity = (index, delta) => {
-    setCart(prev => prev.map((item, i) => {
-      if (i === index) {
-        const newQty = item.quantity + delta;
-        return newQty > 0 ? { ...item, quantity: newQty } : null;
-      }
-      return item;
-    }).filter(Boolean));
-  };
-
-  const removeFromCart = (index) => {
-    setCart(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const cartSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const deliveryFee = storeSettings.deliveryFee || 2.00;
-  const grandTotal = Math.max(0, cartSubtotal + deliveryFee - discountValue);
-
-  const handleApplyDiscount = () => {
-    const code = promoInput.trim().toUpperCase();
-    const codesMap = storeSettings.discountCodes || {};
-    if (codesMap[code] !== undefined) {
-      const val = codesMap[code];
-      const calculatedDiscount = val < 1 ? cartSubtotal * val : val;
-      setDiscountValue(calculatedDiscount);
-      setAppliedPromoCode(code);
-      triggerToast(lang === 'ar' ? 'تم تطبيق كود الخصم بنجاح!' : 'Discount code applied successfully!', 'success');
-    } else {
-      triggerToast(lang === 'ar' ? 'كود الخصم غير صالح.' : 'Invalid discount code.', 'error');
-    }
-  };
-
-  const handleWhatsAppCheckout = () => {
-    if (cart.length === 0) return;
-    let text = `مرحباً، أود طلب المنتجات التالية من كرم ستورز:\n`;
-    cart.forEach(i => { text += `- ${i.name} (الكمية: ${i.quantity}) - ${ (i.price * i.quantity).toFixed(2) } JD\n`; });
-    text += `المجموع الفرعي: ${ cartSubtotal.toFixed(2) } JD\nرسوم التوصيل: ${ deliveryFee.toFixed(2) } JD`;
-    if (discountValue > 0) text += `\nالخصم (${appliedPromoCode}): -${ discountValue.toFixed(2) } JD`;
-    text += `\nالمجموع الإجمالي: ${ grandTotal.toFixed(2) } JD`;
-    
-    // Using store number 0781794172 formatted for WhatsApp (Jordan country code +962)
-    window.open(`https://wa.me/962781794172?text=${encodeURIComponent(text)}`, '_blank');
-  };
-
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    if (!catalogSearch.trim()) return;
-    setSubmittedSearchQuery(catalogSearch.trim());
-    setSelectedCategoryView(null);
-    setIsMoreCatalogOpen(false);
-    setSelectedProduct(null);
-    setIsSearchOpen(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleExecuteOrderSubmission = (e) => {
-    e.preventDefault();
-    const phoneRegex = /^\d{10}$/;
-    if (!phoneRegex.test(phone)) {
-      triggerToast(lang === 'ar' ? 'يجب أن يتكون رقم الهاتف من 10 أرقام بالضبط.' : 'Phone number must be exactly 10 digits.', 'error');
-      return;
-    }
-    if (!arabicName.trim() || !manualAddress.trim()) {
-      triggerToast(lang === 'ar' ? 'يرجى ملء جميع الحقول المطلوبة.' : 'Please fill out all required fields.', 'error');
-      return;
-    }
-
-    const trimmedPhone = phone.trim();
-    localStorage.setItem('user_phone', trimmedPhone);
-    setLookupPhone(trimmedPhone);
-
-    const orderData = { 
-      items: cart, 
-      total: cartSubtotal,
-      deliveryFee: deliveryFee,
-      discountAmount: discountValue,
-      grandTotal: grandTotal,
-      arabicName: arabicName.trim(),
-      phone: trimmedPhone,
-      address: manualAddress.trim(),
-      customer: {
-        arabicName: arabicName.trim() || 'N/A',
-        phone1: trimmedPhone || 'N/A',
-        manualAddress: manualAddress.trim() || 'N/A',
-        paymentMethod: 'Cash on Delivery'
-      }
-    };
-
-    fetch('https://karamstores.onrender.com/api/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(orderData)
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('Checkout failed');
-        return res.json();
-      })
-      .then(data => {
-        setCheckoutMessage(lang === 'ar' ? `تم تقديم الطلب بنجاح! رقم الطلب: #${data.order?.id || 'مؤكد'}` : `Order placed successfully! Order ID: #${data.order?.id || 'Confirmed'}`);
-        triggerToast(lang === 'ar' ? 'تم إرسال طلبك بنجاح!' : 'Order submitted successfully!', 'success');
-        setCart([]);
-        setDiscountValue(0);
-        setAppliedPromoCode(null);
-        setIsCheckoutOpen(false);
-        setArabicName('');
-        setPhone('');
-        setManualAddress('');
-        setTimeout(() => setCheckoutMessage(''), 6000);
-        fetchProducts();
-        fetchOrders();
-      })
-      .catch(err => console.error('Error during checkout:', err));
-  };
-
-  const featuredProducts = products.filter(p => p.featured);
-  const searchResultsList = useMemo(() => {
-    if (!catalogSearch.trim()) return [];
-    return products.filter(p => p.name.toLowerCase().includes(catalogSearch.toLowerCase()) || (p.category && p.category.toLowerCase().includes(catalogSearch.toLowerCase())));
-  }, [products, catalogSearch]);
-
-  const sortedSearchResults = useMemo(() => {
-    if (!submittedSearchQuery) return [];
-    const query = submittedSearchQuery.toLowerCase();
-    return products.map(product => {
-      let score = 0;
-      const name = (product.name || '').toLowerCase();
-      const category = (product.category || '').toLowerCase();
-      if (name === query) score += 100;
-      else if (name.startsWith(query)) score += 75;
-      else if (name.includes(query)) score += 50;
-      if (category.includes(query)) score += 30;
-      return { product, score };
-    }).filter(item => item.score > 0).sort((a, b) => b.score - a.score).map(item => item.product);
-  }, [products, submittedSearchQuery]);
-
-  const categoryViewProducts = useMemo(() => {
-    if (!selectedCategoryView) return [];
-    return products.filter(p => p.category && p.category.toLowerCase() === selectedCategoryView.toLowerCase());
-  }, [products, selectedCategoryView]);
-
-  const moreFilteredProducts = useMemo(() => {
-    if (selectedFilterCategory === 'All') return products;
-    return products.filter(p => p.category && p.category.toLowerCase() === selectedFilterCategory.toLowerCase());
-  }, [products, selectedFilterCategory]);
-
-  const similarProducts = selectedProduct 
-    ? products.filter(p => p.category === selectedProduct.category && (p.id || p._id) !== (selectedProduct.id || selectedProduct._id))
-    : [];
-
-  const categoriesList = [
-    { key: 'Cleaning', labelEn: t.catCleaning, labelAr: t.catCleaning, iconSrc: '/icons/cleaning.png' },
-    { key: 'Furniture', labelEn: t.catFurniture, labelAr: t.catFurniture, iconSrc: '/icons/furniture.png' },
-    { key: 'Makeup', labelEn: t.catMakeup, labelAr: t.catMakeup, iconSrc: '/icons/makeup.png' },
-    { key: 'Gifts', labelEn: t.catGifts, labelAr: t.catGifts, iconSrc: '/icons/gifts.png' },
-    { key: 'Kitchen', labelEn: t.catKitchen, labelAr: t.catKitchen, iconSrc: '/icons/kitchen.png' },
-    { key: 'More', labelEn: t.catMore, labelAr: t.catMore, iconSrc: '/icons/more.png' },
-  ];
-
-  const myOrders = allOrders.filter(ord => {
-    if (!lookupPhone.trim()) return false;
-    const ordPhone = ord.customer?.phone1 || ord.phone;
-    return String(ordPhone).trim() === String(lookupPhone).trim();
-  });
-
-  return (
-    <div dir={isRtl ? 'rtl' : 'ltr'} className="store-container">
-      
-      {toast.show && (
-        <div className="toast-notification" style={{ background: toast.type === 'error' ? '#7f1d1d' : '#FD7100' }}>
-          <span>{toast.type === 'error' ? '⚠️' : '✨'}</span>
-          <span>{toast.message}</span>
-        </div>
-      )}
-
-      {/* Top Navbar */}
-      <nav className="navbar">
-        <div onClick={() => { setSelectedProduct(null); setSelectedCategoryView(null); setIsMoreCatalogOpen(false); setSubmittedSearchQuery(''); setCatalogSearch(''); setIsSearchOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
-          <img src="/logo.jpg" alt="Logo" style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #FFF7EE' }} onError={(e) => { e.target.style.display = 'none'; }} />
-          <h2 style={{ margin: 0, fontSize: '1.1rem', letterSpacing: '-0.5px', color: '#FFF7EE', fontWeight: '800' }}>{t.storeName}</h2>
-        </div>
-        
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <button onClick={() => setLang(lang === 'en' ? 'ar' : 'en')} style={{ background: 'transparent', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', padding: '0.4rem 0.6rem', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.75rem' }}>
-            {lang === 'en' ? 'العربية' : 'English'}
-          </button>
-          <button onClick={() => setIsCartOpen(!isCartOpen)} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: '0.85rem' }}>
-            {t.cart} ({cart.reduce((sum, item) => sum + item.quantity, 0)})
-          </button>
-        </div>
-      </nav>
-
-      {/* Toggleable Search Bar */}
-      {isSearchOpen && (
-        <div style={{ background: '#1c1b1b', borderBottom: '1px solid rgba(255,247,238,0.15)', padding: '0.8rem 1rem', display: 'flex', justifyContent: 'center', position: 'relative', zIndex: 95 }}>
-          <form onSubmit={handleSearchSubmit} style={{ width: '100%', maxWidth: '600px', position: 'relative' }}>
-            <input 
-              type="text"
-              placeholder={t.searchPlaceholder}
-              value={catalogSearch}
-              autoFocus
-              onChange={e => setCatalogSearch(e.target.value)}
-              className="form-input"
-              style={{ paddingLeft: isRtl ? '0.9rem' : '2.5rem', paddingRight: isRtl ? '2.5rem' : '0.9rem' }}
-            />
-            <span style={{ position: 'absolute', left: isRtl ? 'auto' : '0.8rem', right: isRtl ? '0.8rem' : 'auto', top: '50%', transform: 'translateY(-50%)', opacity: 0.8 }}>🔍</span>
-
-            {catalogSearch.trim() && (
-              <div style={{ position: 'absolute', top: '105%', left: 0, width: '100%', background: '#2D2C2C', border: '1px solid rgba(255,247,238,0.2)', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.6)', maxHeight: '280px', overflowY: 'auto', zIndex: 110 }}>
-                {searchResultsList.length === 0 ? (
-                  <div style={{ padding: '0.8rem', textAlign: 'center', opacity: 0.7, fontSize: '0.85rem' }}>{lang === 'ar' ? 'لا توجد منتجات مطابقة' : 'No products found'}</div>
-                ) : (
-                  searchResultsList.map(prod => (
-                    <div key={prod.id || prod._id} onClick={() => openProductDetails(prod)} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 0.8rem', borderBottom: '1px solid rgba(255,247,238,0.1)', cursor: 'pointer' }}>
-                      <img src={prod.image || 'https://via.placeholder.com/40'} alt="" style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '4px' }} />
-                      <div style={{ flex: 1 }}>
-                        <h4 style={{ margin: 0, fontSize: '0.85rem', color: '#FFF7EE' }}>{prod.name}</h4>
-                        <span style={{ fontSize: '0.75rem', color: '#FD7100', fontWeight: 'bold' }}>{Number(prod.price).toFixed(2)} JD</span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </form>
-        </div>
-      )}
-
-      {/* VIEW: PRODUCT DETAILS */}
-      {selectedProduct ? (
-        <div style={{ width: '92%', maxWidth: '800px', margin: '1.5rem auto' }}>
-          <button onClick={() => setSelectedProduct(null)} className="back-button">
-            {t.backToCatalog}
-          </button>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem', background: '#2D2C2C', padding: '1.2rem', borderRadius: '14px', border: '1px solid rgba(255,247,238,0.2)', marginBottom: '2rem' }}>
-            <div>
-              <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '10px', background: '#242323', marginBottom: '0.8rem', border: '1px solid rgba(255,247,238,0.2)' }}>
-                <img src={activeImage || selectedProduct.image || 'https://via.placeholder.com/400'} alt={selectedProduct.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </div>
-              
-              {selectedProduct.images && selectedProduct.images.length > 0 && (
-                <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.4rem' }}>
-                  {[selectedProduct.image, ...selectedProduct.images].filter(Boolean).map((imgUrl, idx) => (
-                    <div key={idx} style={{ width: '50px', height: '50px', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', flexShrink: 0 }}>
-                      <img src={imgUrl} alt="" onClick={() => setActiveImage(imgUrl)} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer', border: activeImage === imgUrl ? '2px solid #FD7100' : '1px solid rgba(255,247,238,0.2)' }} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <span className="badge-category">{selectedProduct.category || 'General'}</span>
-              <h1 style={{ margin: '0.5rem 0 0.4rem 0', fontSize: '1.5rem', color: '#FFF7EE', fontWeight: '800' }}>{selectedProduct.name}</h1>
-              <p style={{ fontSize: '1.3rem', fontWeight: '800', color: '#FD7100', margin: '0 0 1rem 0' }}>{Number(selectedProduct.price).toFixed(2)} JD</p>
-              
-              <p style={{ color: '#FFF7EE', opacity: 0.85, lineHeight: '1.5', fontSize: '0.9rem', marginBottom: '1.2rem' }}>
-                {selectedProduct.description || 'High quality product designed for daily convenience.'}
-              </p>
-
-              {selectedProduct.sizes && selectedProduct.sizes.length > 0 && (
-                <div style={{ marginBottom: '1rem' }}>
-                  <label className="form-label" style={{ display: 'block', marginBottom: '0.4rem' }}>{t.selectSize}</label>
-                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                    {selectedProduct.sizes.map(size => (
-                      <button key={size} onClick={() => setSelectedSize(size)} style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', border: selectedSize === size ? '2px solid #FD7100' : '1px solid rgba(255,247,238,0.3)', background: selectedSize === size ? '#FD7100' : '#242323', color: '#FFF7EE', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer' }}>
-                        {size}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {selectedProduct.colors && selectedProduct.colors.length > 0 && (
-                <div style={{ marginBottom: '1.2rem' }}>
-                  <label className="form-label" style={{ display: 'block', marginBottom: '0.4rem' }}>{t.selectColor}</label>
-                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                    {selectedProduct.colors.map(color => (
-                      <button key={color} onClick={() => setSelectedColor(color)} style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', border: selectedColor === color ? '2px solid #FD7100' : '1px solid rgba(255,247,238,0.3)', background: selectedColor === color ? '#FD7100' : '#242323', color: '#FFF7EE', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer' }}>
-                        {color}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <button disabled={selectedProduct.stock <= 0} onClick={addToCartFromDetails} className="btn-primary" style={{ background: selectedProduct.stock > 0 ? '#FD7100' : '#555', width: '100%', marginTop: '0.5rem', cursor: selectedProduct.stock > 0 ? 'pointer' : 'not-allowed' }}>
-                {selectedProduct.stock > 0 ? t.addToCart : t.outOfStock}
-              </button>
-            </div>
-          </div>
-
-          {similarProducts.length > 0 && (
-            <div style={{ marginTop: '2rem' }}>
-              <h3 style={{ fontSize: '1.1rem', color: '#FFF7EE', marginBottom: '1rem', fontWeight: '700' }}>{t.similarOptions} {selectedProduct.category}</h3>
-              <div className="grid-2col">
-                {similarProducts.map(simProd => (
-                  <div key={simProd.id || simProd._id} onClick={() => openProductDetails(simProd)} className="store-card">
-                    <div>
-                      <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.5rem', background: '#242323' }}>
-                        <img src={simProd.image || 'https://via.placeholder.com/200'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </div>
-                      <h4 className="product-title">{simProd.name}</h4>
-                      <p style={{ margin: '0 0 0.6rem 0', fontSize: '0.9rem', fontWeight: '700', color: '#FD7100' }}>{Number(simProd.price).toFixed(2)} JD</p>
-                    </div>
-                    <button onClick={(e) => { e.stopPropagation(); openProductDetails(simProd); }} className="btn-primary" style={{ width: '100%', padding: '0.4rem', fontSize: '0.75rem' }}>
-                      {t.viewDetails}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      ) : submittedSearchQuery ? (
-        /* VIEW: SEARCH RESULTS */
-        <div style={{ width: '92%', maxWidth: '1000px', margin: '1.5rem auto' }}>
-          <button onClick={() => setSubmittedSearchQuery('')} className="back-button">
-            {t.backToCatalog}
-          </button>
-          <h2 style={{ fontSize: '1.4rem', color: '#FFF7EE', marginBottom: '1.2rem', fontWeight: '700' }}>{t.searchResults} "{submittedSearchQuery}"</h2>
-          <div className="grid-2col">
-            {sortedSearchResults.length === 0 ? (
-              <p style={{ color: '#FFF7EE', opacity: 0.6, padding: '2rem 0', gridColumn: 'span 2', textAlign: 'center' }}>{lang === 'ar' ? 'لم يتم العثور على منتجات مطابقة لبحثك.' : 'No matching products found.'}</p>
-            ) : (
-              sortedSearchResults.map(product => (
-                <div key={product.id || product._id} onClick={() => openProductDetails(product)} className="store-card">
-                  <div>
-                    <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.6rem', background: '#242323' }}>
-                      <img src={product.image || 'https://via.placeholder.com/260'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                    <span className="badge-category">{product.category || 'General'}</span>
-                    <h4 className="product-title">{product.name}</h4>
-                    <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(2)} JD</p>
-                  </div>
-                  <button onClick={(e) => { e.stopPropagation(); openProductDetails(product); }} className="btn-primary" style={{ width: '100%', padding: '0.5rem', fontSize: '0.8rem' }}>{t.viewDetails}</button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      ) : selectedCategoryView ? (
-        /* VIEW: CATEGORY PRODUCTS */
-        <div style={{ width: '92%', maxWidth: '1000px', margin: '1.5rem auto' }}>
-          <button onClick={() => setSelectedCategoryView(null)} className="back-button">{t.backToCatalog}</button>
-          <h2 style={{ fontSize: '1.4rem', color: '#FFF7EE', marginBottom: '1.2rem', fontWeight: '700' }}>{t.categoryCatalog}: {selectedCategoryView}</h2>
-          <div className="grid-2col">
-            {categoryViewProducts.length === 0 ? (
-              <p style={{ color: '#FFF7EE', opacity: 0.6, padding: '2rem 0', gridColumn: 'span 2', textAlign: 'center' }}>{lang === 'ar' ? 'لا توجد منتجات في هذه الفئة حالياً.' : 'No products found in this category.'}</p>
-            ) : (
-              categoryViewProducts.map(product => (
-                <div key={product.id || product._id} onClick={() => openProductDetails(product)} className="store-card">
-                  <div>
-                    <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.6rem', background: '#242323' }}>
-                      <img src={product.image || 'https://via.placeholder.com/260'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                    <span className="badge-category">{product.category || 'General'}</span>
-                    <h4 className="product-title">{product.name}</h4>
-                    <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(2)} JD</p>
-                  </div>
-                  <button onClick={(e) => { e.stopPropagation(); openProductDetails(product); }} className="btn-primary" style={{ width: '100%', padding: '0.5rem', fontSize: '0.8rem' }}>{t.viewDetails}</button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      ) : isMoreCatalogOpen ? (
-        /* VIEW: "MORE" FULL STORE EXPLORER & FILTER VIEW */
-        <div style={{ width: '92%', maxWidth: '1000px', margin: '1.5rem auto' }}>
-          <button onClick={() => setIsMoreCatalogOpen(false)} className="back-button">{t.backToCatalog}</button>
-          <h2 style={{ fontSize: '1.4rem', color: '#FFF7EE', marginBottom: '1rem', fontWeight: '700' }}>{t.completeCatalog}</h2>
-
-          {/* Category Filter Bar */}
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label className="form-label" style={{ display: 'block', marginBottom: '0.5rem' }}>{t.filterByCat}</label>
-            <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.4rem' }}>
-              {['All', 'Cleaning', 'Furniture', 'Makeup', 'Gifts', 'Kitchen'].map(cat => (
-                <button 
-                  key={cat} 
-                  onClick={() => setSelectedFilterCategory(cat)} 
-                  style={{ 
-                    padding: '0.4rem 0.9rem', 
-                    borderRadius: '8px', 
-                    border: selectedFilterCategory === cat ? '2px solid #FD7100' : '1px solid rgba(255,247,238,0.25)', 
-                    background: selectedFilterCategory === cat ? '#FD7100' : '#2D2C2C', 
-                    color: '#FFF7EE', 
-                    fontWeight: '700', 
-                    fontSize: '0.8rem', 
-                    cursor: 'pointer',
-                    flexShrink: 0
-                  }}
-                >
-                  {cat === 'All' ? t.allCategoriesFilter : cat}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid-2col">
-            {moreFilteredProducts.length === 0 ? (
-              <p style={{ color: '#FFF7EE', opacity: 0.6, padding: '2rem 0', gridColumn: 'span 2', textAlign: 'center' }}>{lang === 'ar' ? 'لا توجد منتجات في هذه الفئة.' : 'No products found in this category.'}</p>
-            ) : (
-              moreFilteredProducts.map(product => (
-                <div key={product.id || product._id} onClick={() => openProductDetails(product)} className="store-card">
-                  <div>
-                    <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.6rem', background: '#242323' }}>
-                      <img src={product.image || 'https://via.placeholder.com/260'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                    <span className="badge-category">{product.category || 'General'}</span>
-                    <h4 className="product-title">{product.name}</h4>
-                    <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(2)} JD</p>
-                  </div>
-                  <button onClick={(e) => { e.stopPropagation(); openProductDetails(product); }} className="btn-primary" style={{ width: '100%', padding: '0.5rem', fontSize: '0.8rem' }}>{t.viewDetails}</button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      ) : (
-        /* STANDARD STOREFRONT HOME */
-        <>
-          {/* Banner & Scrolling Pinned Cards Container */}
-          <div style={{ position: 'relative', width: '100%', minHeight: '320px', overflow: 'hidden', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-            <img src="/background.jpg" alt="Banner" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }} onError={(e) => { e.target.style.display = 'none'; }} />
-            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'linear-gradient(180deg, rgba(36,35,35,0.3) 0%, rgba(36,35,35,0.9) 100%)', zIndex: 1 }} />
-
-            {featuredProducts.length > 0 && (
-              <div style={{ position: 'relative', zIndex: 10, width: '92%', maxWidth: '1000px', margin: '0 auto 15px auto' }}>
-                <div style={{ display: 'flex', gap: '0.8rem', overflowX: 'auto', paddingBottom: '0.4rem' }}>
-                  {featuredProducts.map(product => (
-                    <div key={`slide-${product.id || product._id}`} onClick={() => openProductDetails(product)} className="store-card" style={{ minWidth: '190px', maxWidth: '190px', flexShrink: 0, background: 'rgba(45, 44, 44, 0.95)', backdropFilter: 'blur(8px)' }}>
-                      <div>
-                        <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '8px', marginBottom: '0.5rem', background: '#242323' }}>
-                          <img src={product.image || 'https://via.placeholder.com/200'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        </div>
-                        <h4 className="product-title">{product.name}</h4>
-                        <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(2)} JD</p>
-                      </div>
-                      <button onClick={(e) => { e.stopPropagation(); openProductDetails(product); }} className="btn-primary" style={{ marginTop: '0.6rem', width: '100%', padding: '0.4rem', fontSize: '0.75rem' }}>{t.viewDetails}</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 3x2 Grid Categories */}
-          <div style={{ width: '92%', maxWidth: '600px', margin: '0 auto 1.8rem auto' }}>
-            <div className="grid-3col">
-              {categoriesList.map((cat, index) => (
-                <div 
-                  key={index} 
-                  onClick={() => { 
-                    if (cat.key === 'More') {
-                      setIsMoreCatalogOpen(true);
-                      setSelectedFilterCategory('All');
-                    } else {
-                      setSelectedCategoryView(cat.key);
-                    }
-                    window.scrollTo({ top: 0, behavior: 'smooth' }); 
-                  }} 
-                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', textAlign: 'center' }}
-                >
-                  <div className="cat-circle">
-                    <img src={cat.iconSrc} alt={cat.key} style={{ width: '30px', height: '30px', objectFit: 'contain' }} onError={(e) => { e.target.style.display = 'none'; }} />
-                  </div>
-                  <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#FFF7EE' }}>{isRtl ? cat.labelAr : cat.labelEn}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Product Catalog Grid */}
-          <div style={{ width: '92%', maxWidth: '1000px', margin: '0 auto' }}>
-            {checkoutMessage && (
-              <div style={{ background: '#2D2C2C', color: '#FD7100', padding: '0.8rem', borderRadius: '8px', marginBottom: '1.5rem', textAlign: 'center', fontWeight: 'bold', fontSize: '0.85rem', border: '1px solid #FD7100' }}>
-                {checkoutMessage}
-              </div>
-            )}
-
-            <h3 style={{ marginBottom: '1rem', fontSize: '1.2rem', color: '#FFF7EE', fontWeight: '700' }}>{t.completeCatalog}</h3>
-
-            <div className="grid-2col">
-              {products.map(product => (
-                <div key={product.id || product._id} onClick={() => openProductDetails(product)} className="store-card">
-                  <div>
-                    <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.6rem', background: '#242323' }}>
-                      <img src={product.image || 'https://via.placeholder.com/260'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                    <span className="badge-category">{product.category || 'General'}</span>
-                    <h4 className="product-title">{product.name}</h4>
-                    <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(2)} JD</p>
-                  </div>
-                  <button onClick={(e) => { e.stopPropagation(); openProductDetails(product); }} className="btn-primary" style={{ width: '100%', padding: '0.5rem', fontSize: '0.8rem' }}>{t.viewDetails}</button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Clean Store Information Section Added to Homepage with Store Number */}
-          <div style={{ width: '92%', maxWidth: '1000px', margin: '2.5rem auto 1rem auto', background: '#2D2C2C', border: '1px solid rgba(255,247,238,0.15)', borderRadius: '12px', padding: '1.2rem 1.5rem' }}>
-            <h4 style={{ margin: '0 0 0.6rem 0', fontSize: '1rem', color: '#FD7100', fontWeight: '700' }}>{t.storeInfoTitle}</h4>
-            <div style={{ fontSize: '0.85rem', opacity: 0.85, display: 'flex', flexDirection: 'column', gap: '0.3rem', lineHeight: '1.5' }}>
-              <span>{t.storeHours}</span>
-              <span>{t.storeLocation}</span>
-              <span>{t.storeSupport}</span>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* MOBILE BOTTOM APP NAVIGATION BAR */}
-      <div className="bottom-nav">
-        <button onClick={() => { setSelectedProduct(null); setSelectedCategoryView(null); setIsMoreCatalogOpen(false); setSubmittedSearchQuery(''); setIsSearchOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="bottom-nav-btn">
-          <span className="bottom-nav-icon">⌂</span>
-          <span>{t.navHome}</span>
-        </button>
-        <button onClick={() => setIsSearchOpen(!isSearchOpen)} className="bottom-nav-btn">
-          <span className="bottom-nav-icon">⚲</span>
-          <span>{t.navSearch}</span>
-        </button>
-        <button onClick={() => setIsCartOpen(true)} className="bottom-nav-btn">
-          <span className="bottom-nav-icon">▢</span>
-          <span>{t.navCart}</span>
-        </button>
-        <button onClick={() => setIsOrderHistoryOpen(true)} className="bottom-nav-btn">
-          <span className="bottom-nav-icon">≡</span>
-          <span>{t.navOrders}</span>
-        </button>
-      </div>
-
-      {/* CART MODAL WINDOW */}
-      {isCartOpen && (
-        <div className="modal-overlay" style={{ alignItems: 'flex-end' }}>
-          <div dir={isRtl ? 'rtl' : 'ltr'} className="modal-content modal-bottom-sheet">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,247,238,0.2)', paddingBottom: '0.8rem', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0, color: '#FFF7EE', fontSize: '1.1rem', fontWeight: '700' }}>{t.cartReview}</h3>
-              <button onClick={() => setIsCartOpen(false)} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#FFF7EE' }}>✕</button>
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.8rem', maxHeight: '40vh' }}>
-              {cart.length === 0 ? (
-                <p style={{ color: '#FFF7EE', opacity: 0.6, textAlign: 'center', marginTop: '2rem', fontSize: '0.9rem' }}>{t.emptyCart}</p>
-              ) : (
-                cart.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,247,238,0.1)', paddingBottom: '0.6rem' }}>
-                    <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
-                      <div style={{ width: '40px', height: '40px', overflow: 'hidden', borderRadius: '6px', flexShrink: 0, border: '1px solid rgba(255,247,238,0.2)' }}>
-                        <img src={item.image || 'https://via.placeholder.com/40'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </div>
-                      <div>
-                        <h4 style={{ margin: '0 0 0.1rem 0', fontSize: '0.85rem', color: '#FFF7EE', fontWeight: '600' }}>{item.name}</h4>
-                        <p style={{ margin: '0 0 0.2rem 0', fontSize: '0.7rem', color: '#FFF7EE', opacity: 0.7 }}>
-                          {item.selectedSize ? `Size: ${item.selectedSize} ` : ''} {item.selectedColor ? `Color: ${item.selectedColor}` : ''}
-                        </p>
-                        <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#FD7100' }}>{Number(item.price).toFixed(2)} JD</span>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', border: '1px solid rgba(255,247,238,0.3)', borderRadius: '6px' }}>
-                        <button onClick={() => updateQuantity(idx, -1)} style={{ background: '#242323', color: '#FFF7EE', border: 'none', padding: '0.2rem 0.5rem', cursor: 'pointer', fontWeight: 'bold' }}>-</button>
-                        <span style={{ padding: '0 0.4rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#FFF7EE' }}>{item.quantity}</span>
-                        <button onClick={() => updateQuantity(idx, 1)} style={{ background: '#242323', color: '#FFF7EE', border: 'none', padding: '0.2rem 0.5rem', cursor: 'pointer', fontWeight: 'bold' }}>+</button>
-                      </div>
-                      <button onClick={() => removeFromCart(idx)} style={{ background: '#7f1d1d', color: '#FFF7EE', border: 'none', padding: '0.3rem 0.5rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.7rem' }}>✕</button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {cart.length > 0 && (
-              <div style={{ borderTop: '1px solid rgba(255,247,238,0.2)', paddingTop: '1rem', marginTop: '0.8rem' }}>
-                <div style={{ background: '#242323', border: '1px solid rgba(255,247,238,0.2)', borderRadius: '8px', padding: '0.8rem', marginBottom: '0.8rem', fontSize: '0.85rem', color: '#FFF7EE' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
-                    <span style={{ opacity: 0.8 }}>{t.subtotal}</span>
-                    <span>{cartSubtotal.toFixed(2)} JD</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
-                    <span style={{ opacity: 0.8 }}>{t.deliveryFeeLabel}</span>
-                    <span>{deliveryFee.toFixed(2)} JD</span>
-                  </div>
-                  {discountValue > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', color: '#4ade80' }}>
-                      <span>Discount ({appliedPromoCode}):</span>
-                      <span>-{discountValue.toFixed(2)} JD</span>
-                    </div>
-                  )}
-
-                  <div style={{ display: 'flex', gap: '0.4rem', margin: '0.6rem 0' }}>
-                    <input type="text" placeholder={t.discountLabel} value={promoInput} onChange={e => setPromoInput(e.target.value)} className="form-input" style={{ flex: 1, textTransform: 'uppercase', padding: '0.4rem 0.5rem', fontSize: '0.8rem' }} />
-                    <button onClick={handleApplyDiscount} className="btn-primary" style={{ padding: '0.4rem 0.7rem', fontSize: '0.8rem' }}>{t.applyPromo}</button>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '1rem', color: '#FFF7EE', borderTop: '1px solid rgba(255,247,238,0.2)', paddingTop: '0.5rem', marginTop: '0.3rem' }}>
-                    <span>{t.totalAmount}</span>
-                    <span style={{ color: '#FD7100' }}>{grandTotal.toFixed(2)} JD</span>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '0.6rem' }}>
-                  <button onClick={() => { setIsCartOpen(false); setIsCheckoutOpen(true); }} className="btn-primary" style={{ flex: 1, padding: '0.8rem', fontSize: '0.9rem' }}>{t.orderNow}</button>
-                  <button onClick={handleWhatsAppCheckout} className="btn-whatsapp">{t.whatsappCheckout}</button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* CHECKOUT INFORMATION MODAL */}
-      {isCheckoutOpen && (
-        <div className="modal-overlay">
-          <div dir={isRtl ? 'rtl' : 'ltr'} className="modal-content">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,247,238,0.2)', paddingBottom: '0.8rem', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0, color: '#FFF7EE', fontSize: '1.1rem', fontWeight: '700' }}>{t.customerInfo}</h3>
-              <button onClick={() => setIsCheckoutOpen(false)} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#FFF7EE' }}>✕</button>
-            </div>
-
-            <form onSubmit={handleExecuteOrderSubmission} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
-              <div className="form-group">
-                <label className="form-label">{t.arabicNameLabel}</label>
-                <input type="text" placeholder={t.arabicNamePlaceholder} value={arabicName} onChange={e => setArabicName(e.target.value)} required dir="rtl" className="form-input" style={{ textAlign: 'right' }} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t.phoneLabel}</label>
-                <input type="tel" placeholder={t.phonePlaceholder} maxLength="10" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} required className="form-input" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t.manualAddressLabel} <span style={{ color: '#f87171' }}>{t.obligatory}</span></label>
-                <textarea placeholder={t.manualAddressPlaceholder} value={manualAddress} onChange={e => setManualAddress(e.target.value)} rows="3" required className="form-input" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">{t.paymentMethod}</label>
-                <select value={paymentMethod} disabled className="form-input" style={{ opacity: 0.7, fontWeight: 'bold' }}>
-                  <option value="Cash">{t.cashOnDelivery}</option>
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.8rem' }}>
-                <button type="button" onClick={() => setIsCheckoutOpen(false)} className="btn-secondary" style={{ flex: 1 }}>{t.backToCart}</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1, padding: '0.75rem', fontSize: '0.85rem' }}>{t.reviewOrder}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* TRACK PAST ORDERS & RECEIPTS MODAL */}
-      {isOrderHistoryOpen && (
-        <div className="modal-overlay">
-          <div dir={isRtl ? 'rtl' : 'ltr'} className="modal-content">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,247,238,0.2)', paddingBottom: '0.8rem', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0, color: '#FFF7EE', fontSize: '1.1rem', fontWeight: '700' }}>{t.pastOrdersTitle}</h3>
-              <button onClick={() => setIsOrderHistoryOpen(false)} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#FFF7EE' }}>✕</button>
-            </div>
-
-            <div style={{ marginBottom: '1.2rem', background: '#242323', padding: '0.9rem', borderRadius: '10px', border: '1px solid rgba(255,247,238,0.2)' }}>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.4rem', opacity: 0.9 }}>{t.lookupPrompt}</label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input 
-                  type="tel" 
-                  maxLength="10"
-                  placeholder="07XXXXXXXX" 
-                  value={lookupPhone} 
-                  onChange={e => setLookupPhone(e.target.value.replace(/\D/g, ''))} 
-                  className="form-input"
-                  style={{ flex: 1 }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', maxHeight: '50vh', overflowY: 'auto' }}>
-              {!lookupPhone || lookupPhone.length < 10 ? (
-                <p style={{ color: '#FFF7EE', opacity: 0.6, textAlign: 'center', padding: '1.5rem 0', fontSize: '0.85rem' }}>
-                  {lang === 'ar' ? 'يرجى إدخال رقم الهاتف الكامل المكون من 10 أرقام أعلاه لعرض الطلبات.' : 'Please enter your full 10-digit phone number above to view orders.'}
-                </p>
-              ) : myOrders.length === 0 ? (
-                <p style={{ color: '#FFF7EE', opacity: 0.6, textAlign: 'center', padding: '1.5rem 0', fontSize: '0.85rem' }}>{t.noPastOrders}</p>
-              ) : (
-                myOrders.map(ord => {
-                  const oId = ord.id || ord._id;
-                  const statusColor = ord.status === 'Shipped' ? '#4ade80' : ord.status === 'Processing' ? '#facc15' : '#60a5fa';
-                  const isExpanded = expandedReceiptId === oId;
-                  const orderDate = new Date(ord.createdAt || Date.now()).toLocaleString();
-
-                  return (
-                    <div key={oId} style={{ border: '1px solid rgba(255,247,238,0.2)', borderRadius: '10px', padding: '1rem', background: '#242323' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                        <div>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#FFF7EE' }}>{t.orderId} #{oId}</span>
-                          <span style={{ display: 'block', fontSize: '0.7rem', color: '#FFF7EE', opacity: 0.6 }}>{orderDate}</span>
-                        </div>
-                        <span style={{ border: '1px solid rgba(255,247,238,0.3)', color: statusColor, padding: '0.15rem 0.5rem', borderRadius: '10px', fontSize: '0.7rem', fontWeight: 'bold' }}>{ord.status || 'Pending'}</span>
-                      </div>
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.6rem' }}>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#FFF7EE' }}>
-                          {t.totalDue} <span style={{ color: '#FD7100' }}>{Number(ord.grandTotal || ord.total || 0).toFixed(2)} JD</span>
-                        </span>
-                        <button onClick={() => setExpandedReceiptId(isExpanded ? null : oId)} className="btn-primary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}>
-                          {isExpanded ? t.hideReceipt : t.viewReceipt}
-                        </button>
-                      </div>
-
-                      {isExpanded && (
-                        <div style={{ marginTop: '0.8rem', background: '#242323', border: '1px dashed rgba(255,247,238,0.3)', borderRadius: '8px', padding: '1rem' }}>
-                          <h4 style={{ margin: '0 0 0.6rem 0', fontSize: '0.9rem', color: '#FFF7EE', borderBottom: '1px solid rgba(255,247,238,0.2)', paddingBottom: '0.3rem', fontWeight: '700' }}>{t.officialReceipt}</h4>
-
-                          {ord.customer && (
-                            <div style={{ marginBottom: '0.6rem', fontSize: '0.8rem', color: '#FFF7EE', opacity: 0.85, lineHeight: '1.4' }}>
-                              <p style={{ margin: '0 0 0.2rem 0' }}><strong>{t.nameArabic}</strong> {ord.customer.arabicName}</p>
-                              <p style={{ margin: '0 0 0.2rem 0' }}><strong>{t.phones}</strong> {ord.customer.phone1}</p>
-                              <p style={{ margin: '0 0 0.2rem 0' }}><strong>{t.address}</strong> {ord.customer.manualAddress}</p>
-                            </div>
-                          )}
-
-                          <div style={{ borderTop: '1px solid rgba(255,247,238,0.2)', paddingTop: '0.5rem', marginBottom: '0.6rem' }}>
-                            <p style={{ margin: '0 0 0.3rem 0', fontSize: '0.8rem', fontWeight: 'bold', color: '#FFF7EE' }}>{t.orderedItems}</p>
-                            {ord.items && ord.items.map((it, i) => (
-                              <div key={i} style={{ fontSize: '0.75rem', color: '#FFF7EE', opacity: 0.85, display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
-                                <span>{it.name} (×{it.quantity})</span>
-                                <span style={{ fontWeight: 'bold', color: '#FD7100' }}>{(it.price * it.quantity).toFixed(2)} JD</span>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div style={{ borderTop: '1px solid rgba(255,247,238,0.2)', paddingTop: '0.5rem', fontSize: '0.8rem', color: '#FFF7EE' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
-                              <span style={{ opacity: 0.8 }}>{t.subtotal}</span>
-                              <span>{Number(ord.total || 0).toFixed(2)} JD</span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
-                              <span style={{ opacity: 0.8 }}>{t.deliveryFee}</span>
-                              <span>{Number(ord.deliveryFee || 2.00).toFixed(2)} JD</span>
-                            </div>
-                            {ord.discountAmount > 0 && (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem', color: '#4ade80' }}>
-                                <span>Discount:</span>
-                                <span>-{Number(ord.discountAmount).toFixed(2)} JD</span>
-                              </div>
-                            )}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '0.9rem', marginTop: '0.3rem', borderTop: '1px solid rgba(255,247,238,0.2)', paddingTop: '0.3rem' }}>
-                              <span>{t.totalToPay}</span>
-                              <span style={{ color: '#FD7100' }}>{Number(ord.grandTotal || (ord.total + (ord.deliveryFee || 2.00))).toFixed(2)} JD</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
 }
