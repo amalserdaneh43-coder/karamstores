@@ -39,13 +39,22 @@ let products = loadData(PRODUCTS_FILE, [
 
 let categoriesList = loadData(CATEGORIES_FILE, ['Cleaning', 'Furniture', 'Makeup', 'Gifts', 'Kitchen', 'General']);
 let orders = loadData(ORDERS_FILE, []);
-let storeSettings = loadData(SETTINGS_FILE, { deliveryFee: 3.00, discountCodes: { "WELCOME10": 0.10, "KARAM5": 5.00 } });
+let storeSettings = loadData(SETTINGS_FILE, { deliveryFee: 2.00, irbidDeliveryFee: 3.50, discountCodes: { "WELCOME10": 0.10, "KARAM5": 5.00 } });
 
 // --- SETTINGS ENDPOINTS ---
 app.get('/api/settings', (req, res) => res.json(storeSettings));
-app.patch('/api/settings', (req, res) => {
-  const { deliveryFee, discountCodes } = req.body;
+app.put('/api/settings', (req, res) => {
+  const { deliveryFee, irbidDeliveryFee, discountCodes } = req.body;
   if (deliveryFee !== undefined) storeSettings.deliveryFee = Number(deliveryFee);
+  if (irbidDeliveryFee !== undefined) storeSettings.irbidDeliveryFee = Number(irbidDeliveryFee);
+  if (discountCodes !== undefined) storeSettings.discountCodes = discountCodes;
+  saveData(SETTINGS_FILE, storeSettings);
+  res.json({ message: 'Settings updated successfully', storeSettings });
+});
+app.patch('/api/settings', (req, res) => {
+  const { deliveryFee, irbidDeliveryFee, discountCodes } = req.body;
+  if (deliveryFee !== undefined) storeSettings.deliveryFee = Number(deliveryFee);
+  if (irbidDeliveryFee !== undefined) storeSettings.irbidDeliveryFee = Number(irbidDeliveryFee);
   if (discountCodes !== undefined) storeSettings.discountCodes = discountCodes;
   saveData(SETTINGS_FILE, storeSettings);
   res.json({ message: 'Settings updated successfully', storeSettings });
@@ -151,6 +160,33 @@ app.post('/api/products/import', (req, res) => {
   }
 });
 
+app.put('/api/products/:id', (req, res) => {
+  const { id } = req.params;
+  const { newId, price, stock, name, category, image, images, description, sizes, colors, featured } = req.body;
+
+  const product = products.find(p => (p.id === id || p._id === id));
+  if (product) {
+    if (newId && newId.trim() !== '') {
+      product.id = newId.trim();
+      product._id = newId.trim();
+    }
+    if (name !== undefined) product.name = name;
+    if (category !== undefined) product.category = category;
+    if (price !== undefined) product.price = Number(price);
+    if (stock !== undefined) product.stock = Number(stock);
+    if (image !== undefined) product.image = image;
+    if (images !== undefined) product.images = images;
+    if (description !== undefined) product.description = description;
+    if (sizes !== undefined) product.sizes = sizes;
+    if (colors !== undefined) product.colors = colors;
+    if (featured !== undefined) product.featured = Boolean(featured);
+    
+    saveData(PRODUCTS_FILE, products);
+    return res.json({ message: 'Product updated successfully', product });
+  }
+  res.status(404).json({ message: 'Product not found' });
+});
+
 app.patch('/api/products/:id', (req, res) => {
   const { id } = req.params;
   const { newId, price, stock, name, category, image, images, description, sizes, colors, featured } = req.body;
@@ -200,7 +236,7 @@ app.post('/api/orders', async (req, res) => {
     saveData(PRODUCTS_FILE, products);
 
     const subtotal = incomingOrder.total || items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-    const deliveryFee = storeSettings.deliveryFee;
+    const deliveryFee = incomingOrder.deliveryFee !== undefined ? Number(incomingOrder.deliveryFee) : storeSettings.deliveryFee;
     let discountAmount = incomingOrder.discountAmount || 0;
     const grandTotal = Math.max(0, subtotal + deliveryFee - discountAmount);
 
@@ -250,7 +286,7 @@ app.post('/api/orders/import', (req, res) => {
         total: Number(ord.total) || 0,
         deliveryFee: Number(ord.deliveryFee) || storeSettings.deliveryFee,
         discountAmount: Number(ord.discountAmount) || 0,
-        grandTotal: Number(ord.grandTotal) || Number(ord.total || 0) + 3.00,
+        grandTotal: Number(ord.grandTotal) || Number(ord.total || 0) + 2.00,
         status: ord.status || 'Pending',
         createdAt: ord.createdAt || new Date().toISOString(),
         customer: {
@@ -281,12 +317,56 @@ app.get('/api/orders', async (req, res) => {
   res.json(orders);
 });
 
+app.put('/api/orders/:id', (req, res) => {
+  const { id } = req.params;
+  const { status, customer, phone, address, items, total, grandTotal } = req.body;
+  
+  const order = orders.find(o => String(o.id) === String(id) || String(o._id) === String(id));
+  if (order) {
+    if (status !== undefined) order.status = status;
+    if (customer !== undefined) order.customer = customer;
+    if (phone !== undefined) {
+      if (!order.customer) order.customer = {};
+      order.customer.phone1 = phone;
+    }
+    if (address !== undefined) {
+      if (!order.customer) order.customer = {};
+      order.customer.manualAddress = address;
+    }
+    if (items !== undefined) order.items = items;
+    if (total !== undefined) order.total = Number(total);
+    if (grandTotal !== undefined) order.grandTotal = Number(grandTotal);
+
+    saveData(ORDERS_FILE, orders);
+    return res.json({ message: 'Order updated successfully', order });
+  }
+  res.status(404).json({ message: 'Order not found' });
+});
+
 app.patch('/api/orders/:id', (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
-  orders = orders.map(o => (String(o.id) === String(id) || String(o._id) === String(id)) ? { ...o, status } : o);
-  saveData(ORDERS_FILE, orders);
-  res.json({ message: 'Order status updated successfully' });
+  const { status, customer, phone, address, items, total, grandTotal } = req.body;
+  
+  const order = orders.find(o => String(o.id) === String(id) || String(o._id) === String(id));
+  if (order) {
+    if (status !== undefined) order.status = status;
+    if (customer !== undefined) order.customer = customer;
+    if (phone !== undefined) {
+      if (!order.customer) order.customer = {};
+      order.customer.phone1 = phone;
+    }
+    if (address !== undefined) {
+      if (!order.customer) order.customer = {};
+      order.customer.manualAddress = address;
+    }
+    if (items !== undefined) order.items = items;
+    if (total !== undefined) order.total = Number(total);
+    if (grandTotal !== undefined) order.grandTotal = Number(grandTotal);
+
+    saveData(ORDERS_FILE, orders);
+    return res.json({ message: 'Order updated successfully', order });
+  }
+  res.status(404).json({ message: 'Order not found' });
 });
 
 app.delete('/api/orders/:id', async (req, res) => {
