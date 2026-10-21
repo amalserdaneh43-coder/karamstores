@@ -981,17 +981,17 @@ export default function AdminGate() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
 
-  const handleLogin = (e) => {
+ const handleLogin = (e) => {
     e.preventDefault();
     
-    // Send password securely to the backend for verification
     fetch('https://karamstores.onrender.com/api/admin/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: passwordInput })
     })
-      .then(res => {
-        if (res.ok) {
+      .then(res => res.json()) // parse the JSON response
+      .then(data => {
+        if (data.success) {
           setIsAuthenticated(true);
         } else {
           alert('Incorrect admin password!');
@@ -1002,7 +1002,7 @@ export default function AdminGate() {
         alert('Could not connect to server.');
       });
   };
-
+  
   if (!isAuthenticated) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#1c1b1b', color: '#FFF7EE', fontFamily: 'system-ui' }}>
