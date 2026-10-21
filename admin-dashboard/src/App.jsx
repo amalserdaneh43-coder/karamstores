@@ -65,7 +65,7 @@ function AdminDashboard() {
     fetchData();
   }, []);
 
-  // --- PRINTING RECEIPT & BARCODES ---
+  // --- PRINTING RECEIPT & BARCODES (Restored Original Clean Layout) ---
   const handlePrintReceipt = (ord) => {
     const printWindow = window.open('', '_blank');
     const htmlContent = `
@@ -75,11 +75,12 @@ function AdminDashboard() {
           <style>
             body { font-family: Tahoma, sans-serif; padding: 20px; color: #000; }
             .header { text-align: center; border-bottom: 2px dashed #333; padding-bottom: 10px; margin-bottom: 15px; }
-            .details { margin-bottom: 15px; font-size: 14px; }
+            .details { margin-bottom: 15px; font-size: 14px; line-height: 1.5; }
             table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: right; font-size: 13px; }
             th { background: #f4f4f4; }
-            .barcode-box { text-align: center; margin-top: 25px; font-family: monospace; font-size: 20px; letter-spacing: 4px; }
+            .totals { font-size: 14px; line-height: 1.6; border-top: 1px solid #333; padding-top: 10px; }
+            .barcode-box { text-align: center; margin-top: 30px; font-family: monospace; font-size: 22px; letter-spacing: 6px; font-weight: bold; }
           </style>
         </head>
         <body>
@@ -106,7 +107,7 @@ function AdminDashboard() {
             <tbody>
               ${(ord.items || []).map(i => `
                 <tr>
-                  <td>${i.name} ${i.selectedSize ? `(${i.selectedSize})` : ''}</td>
+                  <td>${i.name}${i.selectedSize ? `(${i.selectedSize})` : ''}</td>
                   <td>${i.quantity}</td>
                   <td>${Number(i.price).toFixed(2)} JD</td>
                   <td>${(i.price * i.quantity).toFixed(2)} JD</td>
@@ -114,7 +115,7 @@ function AdminDashboard() {
               `).join('')}
             </tbody>
           </table>
-          <div style="font-size: 14px; line-height: 1.6;">
+          <div class="totals">
             <p>المجموع الفرعي: <strong>${Number(ord.total || 0).toFixed(2)} JD</strong></p>
             <p>رسوم التوصيل: <strong>${Number(ord.deliveryFee || 2.00).toFixed(2)} JD</strong></p>
             ${ord.discountAmount > 0 ? `<p>الخصم: <strong>-${Number(ord.discountAmount).toFixed(2)} JD</strong></p>` : ''}
@@ -122,7 +123,7 @@ function AdminDashboard() {
           </div>
           <div class="barcode-box">
             *ORD-${ord.id || ord._id}*
-            <div style="font-size: 10px; margin-top: 5px;">Barcode ID: ${ord.id || ord._id}</div>
+            <div style="font-size: 11px; margin-top: 5px; letter-spacing: normal;">Barcode ID: ${ord.id || ord._id}</div>
           </div>
           <script>
             window.onload = function() { window.print(); window.close(); }
@@ -220,12 +221,10 @@ function AdminDashboard() {
       };
 
       const parsedProducts = [];
-      // Skip header (start at i = 1)
       for (let i = 1; i < lines.length; i++) {
         const row = parseLine(lines[i]);
         if (row.length < 3) continue;
 
-        // Template format: id, name, price, category, stock, featured, image, images, description
         const id = row[0] || '';
         const name = row[1] || 'Product';
         const price = parseFloat(row[2]) || 0.0;
@@ -258,33 +257,25 @@ function AdminDashboard() {
       }
 
       if (window.confirm(`Successfully parsed ${parsedProducts.length} valid products from CSV. Upload/Update them now?`)) {
-        let successCount = 0;
-        parsedProducts.forEach(prod => {
-          const targetId = prod.id || prod._id;
-          const url = targetId 
-            ? `https://karamstores.onrender.com/api/products/${targetId}`
-            : 'https://karamstores.onrender.com/api/products';
-          const method = targetId ? 'PUT' : 'POST';
-
-          fetch(url, {
-            method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(prod)
+        fetch('https://karamstores.onrender.com/api/products/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ products: parsedProducts })
+        })
+          .then(res => res.json())
+          .then(data => {
+            alert(data.message || 'Inventory successfully imported & updated!');
+            fetchData();
           })
-            .then(res => {
-              if (res.ok) successCount++;
-              if (successCount === parsedProducts.length) {
-                alert('Inventory successfully imported & updated!');
-                fetchData();
-              }
-            })
-            .catch(err => console.error('Import error:', err));
-        });
+          .catch(err => {
+            console.error('Import error:', err);
+            alert('Error during bulk import.');
+          });
       }
     };
   };
 
-  // --- PRODUCT MANAGEMENT (FIXED UPDATE & EDITING) ---
+  // --- PRODUCT MANAGEMENT (FIXED EDIT & PATCH ROUTE) ---
   const handleSaveProduct = (e) => {
     e.preventDefault();
     const extraImagesArray = formImagesInput ? formImagesInput.split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -302,7 +293,7 @@ function AdminDashboard() {
     const url = editingId 
       ? `https://karamstores.onrender.com/api/products/${editingId}`
       : 'https://karamstores.onrender.com/api/products';
-    const method = editingId ? 'PUT' : 'POST';
+    const method = editingId ? 'PATCH' : 'POST';
 
     fetch(url, {
       method,
@@ -362,7 +353,7 @@ function AdminDashboard() {
   // --- ORDER STATUS & EDITING ---
   const handleUpdateOrderStatus = (orderId, newStatus) => {
     fetch(`https://karamstores.onrender.com/api/orders/${orderId}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus })
     })
@@ -389,7 +380,7 @@ function AdminDashboard() {
     };
 
     fetch(`https://karamstores.onrender.com/api/orders/${ordId}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         customer: updatedCustomer,
@@ -413,7 +404,7 @@ function AdminDashboard() {
   const handleUpdateSettings = (e) => {
     e.preventDefault();
     fetch('https://karamstores.onrender.com/api/settings', {
-      method: 'PUT',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         deliveryFee: parseFloat(ammanFee),
@@ -423,7 +414,7 @@ function AdminDashboard() {
     })
       .then(res => res.json())
       .then(data => {
-        setSettings(data);
+        setSettings(data.storeSettings || data);
         alert('Store settings & regional delivery fees updated successfully!');
       })
       .catch(err => console.error('Error updating settings:', err));
@@ -434,7 +425,7 @@ function AdminDashboard() {
     const updatedCodes = { ...settings.discountCodes, [newPromoCode.trim().toUpperCase()]: parseFloat(newPromoVal) };
     
     fetch('https://karamstores.onrender.com/api/settings', {
-      method: 'PUT',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         deliveryFee: settings.deliveryFee,
@@ -444,7 +435,7 @@ function AdminDashboard() {
     })
       .then(res => res.json())
       .then(data => {
-        setSettings(data);
+        setSettings(data.storeSettings || data);
         setNewPromoCode('');
         setNewPromoVal('');
         alert('Discount code added!');
@@ -456,7 +447,7 @@ function AdminDashboard() {
     delete updatedCodes[codeKey];
 
     fetch('https://karamstores.onrender.com/api/settings', {
-      method: 'PUT',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         deliveryFee: settings.deliveryFee,
@@ -465,7 +456,7 @@ function AdminDashboard() {
       })
     })
       .then(res => res.json())
-      .then(data => setSettings(data));
+      .then(data => setSettings(data.storeSettings || data));
   };
 
   // --- COMPUTED DATA & ANALYTICS ---
