@@ -143,7 +143,7 @@ app.post('/api/orders', async (req, res) => {
 });
 
 // --- PROTECTED ADMIN ENDPOINTS ---
-app.use('/api/admin/*', authenticateAdminToken);
+app.use('/api/admin/', authenticateAdminToken);
 
 // Update Store Settings
 app.put('/api/settings', async (req, res) => {
