@@ -65,7 +65,7 @@ function AdminDashboard() {
     fetchData();
   }, []);
 
-  // --- PRINTING RECEIPT & BARCODES (Restored Original Clean Layout) ---
+  // --- PRINTING RECEIPT & BARCODES ---
   const handlePrintReceipt = (ord) => {
     const printWindow = window.open('', '_blank');
     const htmlContent = `
@@ -107,7 +107,7 @@ function AdminDashboard() {
             <tbody>
               ${(ord.items || []).map(i => `
                 <tr>
-                  <td>${i.name}${i.selectedSize ? `(${i.selectedSize})` : ''}</td>
+                  <td>${i.name} ${i.selectedSize ? `(${i.selectedSize})` : ''}</td>
                   <td>${i.quantity}</td>
                   <td>${Number(i.price).toFixed(2)} JD</td>
                   <td>${(i.price * i.quantity).toFixed(2)} JD</td>
@@ -138,7 +138,7 @@ function AdminDashboard() {
   // --- DOWNLOAD CSV TEMPLATE WITH ID ---
   const handleDownloadCsvTemplate = () => {
     const templateHeaders = ['id', 'name', 'price', 'category', 'stock', 'featured', 'image', 'images', 'description'];
-    const sampleRow = ['', 'طنجرة', '25.00', 'Kitchen', '10', 'TRUE', 'https://example.com/image.jpg', '', 'High quality pot'];
+    const sampleRow = ['6578465137110', 'طنجرة', '25.00', 'Kitchen', '10', 'TRUE', 'https://example.com/image.jpg', '', 'High quality pot'];
     const csvContent = [templateHeaders.join(','), sampleRow.join(',')].join('\n');
 
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -188,6 +188,26 @@ function AdminDashboard() {
     document.body.removeChild(link);
   };
 
+  // --- SANITIZER HELPERS FOR EXCEL SCIENTIFIC NOTATION & ARABIC TEXT ---
+  const cleanId = (rawId) => {
+    if (!rawId) return '';
+    let str = String(rawId).trim().replace(/^"\t?|"$|^'/g, '');
+    if (str.includes('E+') || str.includes('e+')) {
+      try {
+        const num = Number(str);
+        str = BigInt(Math.round(num)).toString();
+      } catch (e) {
+        str = Number(str).toFixed(0);
+      }
+    }
+    return str;
+  };
+
+  const cleanArabicText = (text) => {
+    if (!text) return '';
+    return String(text).trim().replace(/\uFFFD/g, '');
+  };
+
   const handleImportInventory = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -225,21 +245,21 @@ function AdminDashboard() {
         const row = parseLine(lines[i]);
         if (row.length < 3) continue;
 
-        const id = row[0] || '';
-        const name = row[1] || 'Product';
+        const rawId = cleanId(row[0]);
+        const name = cleanArabicText(row[1]) || 'Product';
         const price = parseFloat(row[2]) || 0.0;
-        const category = row[3] || 'Kitchen';
+        const category = cleanArabicText(row[3]) || 'Kitchen';
         const stock = parseInt(row[4]) || 10;
         const featured = String(row[5]).toUpperCase() === 'TRUE';
         const image = row[6] || '';
         const imagesRaw = row[7] || '';
-        const description = row[8] || '';
+        const description = cleanArabicText(row[8]) || '';
 
         const imagesArray = imagesRaw ? imagesRaw.split('|').map(s => s.trim()).filter(Boolean) : [];
 
         parsedProducts.push({
-          id: id || undefined,
-          _id: id || undefined,
+          id: rawId || undefined,
+          _id: rawId || undefined,
           name,
           price,
           category,
@@ -275,7 +295,7 @@ function AdminDashboard() {
     };
   };
 
-  // --- PRODUCT MANAGEMENT (FIXED EDIT & PATCH ROUTE) ---
+  // --- PRODUCT MANAGEMENT ---
   const handleSaveProduct = (e) => {
     e.preventDefault();
     const extraImagesArray = formImagesInput ? formImagesInput.split(',').map(s => s.trim()).filter(Boolean) : [];
