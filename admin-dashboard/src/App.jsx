@@ -994,41 +994,6 @@ function AdminDashboard() {
 
     </div>
   );
-}
-
-// SECURE PASSWORD GATE WRAPPER
-export default function AdminGate() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
-
-  const handleLogin = (e) => {
-    e.preventDefault();
-    if (passwordInput === 'Karam123') {
-      setIsAuthenticated(true);
-    } else {
-      alert('Incorrect admin password!');
-    }
-  };
-
-  if (!isAuthenticated) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#1c1b1b', color: '#FFF7EE', fontFamily: 'system-ui' }}>
-        <form onSubmit={handleLogin} style={{ background: '#2D2C2C', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)', width: '320px', textAlign: 'center' }}>
-          <h2 style={{ color: '#FD7100', marginBottom: '1rem' }}>Admin Access Locked</h2>
-          <input 
-            type="password" 
-            placeholder="Enter Admin Password..." 
-            value={passwordInput} 
-            onChange={e => setPasswordInput(e.target.value)}
-            style={{ width: '100%', padding: '0.7rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', marginBottom: '1rem', boxSizing: 'border-box' }}
-          />
-          <button type="submit" style={{ width: '100%', background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-            Unlock Dashboard
-          </button>
-        </form>
-      </div>
-    );
-  }
 
   return <AdminDashboard />;
 }
