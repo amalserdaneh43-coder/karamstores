@@ -227,7 +227,7 @@ export default function StoreApp() {
     fetchSettings();
   }, []);
 
-  // --- INTERCEPT BROWSER BACK BUTTON TO CLOSE POPUPS INSTEAD OF LEAVING SITE ---
+  // --- INTERCEPT MOBILE & BROWSER BACK BUTTON ---
   useEffect(() => {
     const isPopupActive = 
       selectedProduct !== null || 
@@ -242,7 +242,7 @@ export default function StoreApp() {
     if (isPopupActive) {
       window.history.pushState({ modalOpen: true }, '');
 
-      const handlePopState = (event) => {
+      const handlePopState = () => {
         setSelectedProduct(null);
         setSelectedCategoryView(null);
         setIsMoreCatalogOpen(false);
@@ -270,6 +270,7 @@ export default function StoreApp() {
   ]);
 
   const openProductDetails = (product) => {
+    window.history.pushState({ modalOpen: true }, '');
     setSelectedProduct(product);
     setSelectedCategoryView(null);
     setIsMoreCatalogOpen(false);
@@ -318,7 +319,6 @@ export default function StoreApp() {
 
   const cartSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   
-  // Dynamic delivery fee calculation based on selected city (Amman vs Irbid/Other)[cite: 1, 3]
   const deliveryFee = selectedCity === 'Irbid' 
     ? (storeSettings.irbidDeliveryFee !== undefined ? storeSettings.irbidDeliveryFee : 3.50) 
     : (storeSettings.deliveryFee !== undefined ? storeSettings.deliveryFee : 2.00);
@@ -369,6 +369,7 @@ export default function StoreApp() {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (!catalogSearch.trim()) return;
+    window.history.pushState({ modalOpen: true }, '');
     setSubmittedSearchQuery(catalogSearch.trim());
     setSelectedCategoryView(null);
     setIsMoreCatalogOpen(false);
@@ -509,7 +510,7 @@ export default function StoreApp() {
           <button onClick={() => setLang(lang === 'en' ? 'ar' : 'en')} style={{ background: 'transparent', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', padding: '0.4rem 0.6rem', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.75rem' }}>
             {lang === 'en' ? 'العربية' : 'English'}
           </button>
-          <button onClick={() => setIsCartOpen(!isCartOpen)} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: '0.85rem' }}>
+          <button onClick={() => { window.history.pushState({ modalOpen: true }, ''); setIsCartOpen(!isCartOpen); }} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: '0.85rem' }}>
             {t.cart} ({cart.reduce((sum, item) => sum + item.quantity, 0)})
           </button>
         </div>
@@ -554,7 +555,7 @@ export default function StoreApp() {
       {/* VIEW: PRODUCT DETAILS */}
       {selectedProduct ? (
         <div style={{ width: '92%', maxWidth: '800px', margin: '1.5rem auto' }}>
-          <button onClick={() => setSelectedProduct(null)} className="back-button">
+          <button onClick={() => window.history.back()} className="back-button">
             {t.backToCatalog}
           </button>
 
@@ -641,7 +642,7 @@ export default function StoreApp() {
       ) : submittedSearchQuery ? (
         /* VIEW: SEARCH RESULTS */
         <div style={{ width: '92%', maxWidth: '1000px', margin: '1.5rem auto' }}>
-          <button onClick={() => setSubmittedSearchQuery('')} className="back-button">
+          <button onClick={() => window.history.back()} className="back-button">
             {t.backToCatalog}
           </button>
           <h2 style={{ fontSize: '1.4rem', color: '#FFF7EE', marginBottom: '1.2rem', fontWeight: '700' }}>{t.searchResults} "{submittedSearchQuery}"</h2>
@@ -668,7 +669,7 @@ export default function StoreApp() {
       ) : selectedCategoryView ? (
         /* VIEW: CATEGORY PRODUCTS */
         <div style={{ width: '92%', maxWidth: '1000px', margin: '1.5rem auto' }}>
-          <button onClick={() => setSelectedCategoryView(null)} className="back-button">{t.backToCatalog}</button>
+          <button onClick={() => window.history.back()} className="back-button">{t.backToCatalog}</button>
           <h2 style={{ fontSize: '1.4rem', color: '#FFF7EE', marginBottom: '1.2rem', fontWeight: '700' }}>{t.categoryCatalog}: {selectedCategoryView}</h2>
           <div className="grid-2col">
             {categoryViewProducts.length === 0 ? (
@@ -693,7 +694,7 @@ export default function StoreApp() {
       ) : isMoreCatalogOpen ? (
         /* VIEW: "MORE" FULL STORE EXPLORER & FILTER VIEW */
         <div style={{ width: '92%', maxWidth: '1000px', margin: '1.5rem auto' }}>
-          <button onClick={() => setIsMoreCatalogOpen(false)} className="back-button">{t.backToCatalog}</button>
+          <button onClick={() => window.history.back()} className="back-button">{t.backToCatalog}</button>
           <h2 style={{ fontSize: '1.4rem', color: '#FFF7EE', marginBottom: '1rem', fontWeight: '700' }}>{t.completeCatalog}</h2>
 
           {/* Category Filter Bar */}
@@ -777,6 +778,7 @@ export default function StoreApp() {
                 <div 
                   key={index} 
                   onClick={() => { 
+                    window.history.pushState({ modalOpen: true }, '');
                     if (cat.key === 'More') {
                       setIsMoreCatalogOpen(true);
                       setSelectedFilterCategory('All');
@@ -841,15 +843,15 @@ export default function StoreApp() {
           <span className="bottom-nav-icon">⌂</span>
           <span>{t.navHome}</span>
         </button>
-        <button onClick={() => setIsSearchOpen(!isSearchOpen)} className="bottom-nav-btn">
+        <button onClick={() => { window.history.pushState({ modalOpen: true }, ''); setIsSearchOpen(!isSearchOpen); }} className="bottom-nav-btn">
           <span className="bottom-nav-icon">⚲</span>
           <span>{t.navSearch}</span>
         </button>
-        <button onClick={() => setIsCartOpen(true)} className="bottom-nav-btn">
+        <button onClick={() => { window.history.pushState({ modalOpen: true }, ''); setIsCartOpen(true); }} className="bottom-nav-btn">
           <span className="bottom-nav-icon">▢</span>
           <span>{t.navCart}</span>
         </button>
-        <button onClick={() => setIsOrderHistoryOpen(true)} className="bottom-nav-btn">
+        <button onClick={() => { window.history.pushState({ modalOpen: true }, ''); setIsOrderHistoryOpen(true); }} className="bottom-nav-btn">
           <span className="bottom-nav-icon">≡</span>
           <span>{t.navOrders}</span>
         </button>
@@ -861,7 +863,7 @@ export default function StoreApp() {
           <div dir={isRtl ? 'rtl' : 'ltr'} className="modal-content modal-bottom-sheet">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,247,238,0.2)', paddingBottom: '0.8rem', marginBottom: '1rem' }}>
               <h3 style={{ margin: 0, color: '#FFF7EE', fontSize: '1.1rem', fontWeight: '700' }}>{t.cartReview}</h3>
-              <button onClick={() => setIsCartOpen(false)} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#FFF7EE' }}>✕</button>
+              <button onClick={() => window.history.back()} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#FFF7EE' }}>✕</button>
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.8rem', maxHeight: '40vh' }}>
@@ -941,7 +943,7 @@ export default function StoreApp() {
           <div dir={isRtl ? 'rtl' : 'ltr'} className="modal-content">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,247,238,0.2)', paddingBottom: '0.8rem', marginBottom: '1rem' }}>
               <h3 style={{ margin: 0, color: '#FFF7EE', fontSize: '1.1rem', fontWeight: '700' }}>{t.customerInfo}</h3>
-              <button onClick={() => setIsCheckoutOpen(false)} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#FFF7EE' }}>✕</button>
+              <button onClick={() => window.history.back()} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#FFF7EE' }}>✕</button>
             </div>
 
             <form onSubmit={handleExecuteOrderSubmission} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
@@ -954,7 +956,6 @@ export default function StoreApp() {
                 <input type="tel" placeholder={t.phonePlaceholder} maxLength="10" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} required className="form-input" />
               </div>
               
-              {/* Added City Dropdown Selector for Regional Delivery Fees */}
               <div className="form-group">
                 <label className="form-label">{t.cityLabel}</label>
                 <select value={selectedCity} onChange={e => setSelectedCity(e.target.value)} className="form-input" style={{ fontWeight: 'bold' }}>
@@ -975,7 +976,7 @@ export default function StoreApp() {
               </div>
 
               <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.8rem' }}>
-                <button type="button" onClick={() => setIsCheckoutOpen(false)} className="btn-secondary" style={{ flex: 1 }}>{t.backToCart}</button>
+                <button type="button" onClick={() => window.history.back()} className="btn-secondary" style={{ flex: 1 }}>{t.backToCart}</button>
                 <button type="submit" className="btn-primary" style={{ flex: 1, padding: '0.75rem', fontSize: '0.85rem' }}>{t.reviewOrder}</button>
               </div>
             </form>
@@ -989,7 +990,7 @@ export default function StoreApp() {
           <div dir={isRtl ? 'rtl' : 'ltr'} className="modal-content">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,247,238,0.2)', paddingBottom: '0.8rem', marginBottom: '1rem' }}>
               <h3 style={{ margin: 0, color: '#FFF7EE', fontSize: '1.1rem', fontWeight: '700' }}>{t.pastOrdersTitle}</h3>
-              <button onClick={() => setIsOrderHistoryOpen(false)} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#FFF7EE' }}>✕</button>
+              <button onClick={() => window.history.back()} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#FFF7EE' }}>✕</button>
             </div>
 
             <div style={{ marginBottom: '1.2rem', background: '#242323', padding: '0.9rem', borderRadius: '10px', border: '1px solid rgba(255,247,238,0.2)' }}>
