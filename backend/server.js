@@ -1,529 +1,452 @@
 const express = require('express');
-
 const cors = require('cors');
-
-const fs = require('fs');
-
-const path = require('path');
-
-
+const mongoose = require('mongoose');
 
 const app = express();
-
-const PORT = process.env.PORT || 5000;
-
-
-
-// Enable CORS and JSON body parsing
-
 app.use(cors());
-
 app.use(express.json({ limit: '10mb' }));
 
+// --- MONGODB CONNECTION ---
+// Replace with your MongoDB connection string (or use environment variables process.env.MONGO_URI)
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://amalserdaneh43_db_user:amalamal22@karam.vuy0bv0.mongodb.net/karam_stores?retryWrites=true&w=majority';
+mongoose.connect(MONGO_URI)
+  .then(() => console.log('Connected to MongoDB successfully'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
+// --- SCHEMAS & MODELS ---
+const productSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  _id: { type: String },
+  name: { type: String, required: true },
+  category: { type: String, default: 'General' },
+  price: { type: Number, required: true },
+  stock: { type: Number, default: 10 },
+  image: { type: String, default: '' },
+  images: [String],
+  description: { type: String, default: '' },
+  sizes: [String],
+  colors: [String],
+  featured: { type: Boolean, default: false }
+});
+const Product = mongoose.model('Product', productSchema);
 
-// Helper paths for JSON persistence
+const categorySchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true }
+});
+const Category = mongoose.model('Category', categorySchema);
 
-const PRODUCTS_FILE = path.join(__dirname, 'products.json');
+const orderSchema = new mongoose.Schema({
+  id: { type: Number, required: true, unique: true },
+  items: Array,
+  total: Number,
+  deliveryFee: Number,
+  discountAmount: Number,
+  grandTotal: Number,
+  status: { type: String, default: 'Pending' },
+  createdAt: { type: String, default: () => new Date().toISOString() },
+  customer: {
+    arabicName: String,
+    phone1: String,
+    phone2: String,
+    manualAddress: String,
+    mapCoordinates: String,
+    paymentMethod: { type: String, default: 'Cash on Delivery' }
+  }
+});
+const Order = mongoose.model('Order', orderSchema);
 
-const ORDERS_FILE = path.join(__dirname, 'orders.json');
+const settingsSchema = new mongoose.Schema({
+  key: { type: String, default: 'main_settings' },
+  deliveryFee: { type: Number, default: 2.00 },
+  irbidDeliveryFee: { type: Number, default: 3.50 },
+  discountCodes: { type: Map, of: Number, default: { "WELCOME10": 0.10, "KARAM5": 5.00 } }
+});
+const Settings = mongoose.model('Settings', settingsSchema);
 
-const SETTINGS_FILE = path.join(__dirname, 'settings.json');
+// Helper to ensure default settings exist in DB
+async function getSettingsDoc() {
+  let settings = await Settings.findOne({ key: 'main_settings' });
+  if (!settings) {
+    settings = await Settings.create({ key: 'main_settings' });
+  }
+  return settings;
+}
 
-
-
-// --- ATOMIC FILE READ/WRITE UTILITIES (Prevents file corruption on concurrent requests) ---
-
-const safeReadJSON = (filePath, fallbackData = []) => {
-
+// --- SETTINGS ENDPOINTS ---
+app.get('/api/settings', async (req, res) => {
   try {
-
-    if (!fs.existsSync(filePath)) {
-
-      safeWriteJSON(filePath, fallbackData);
-
-      return fallbackData;
-
-    }
-
-    const data = fs.readFileSync(filePath, 'utf8');
-
-    return JSON.parse(data);
-
+    const settings = await getSettingsDoc();
+    res.json(settings);
   } catch (err) {
-
-    console.error(`Error reading ${filePath}:`, err);
-
-    return fallbackData;
-
+    res.status(500).json({ error: 'Failed to fetch settings' });
   }
+});
 
-};
-
-
-
-const safeWriteJSON = (filePath, data) => {
-
-  const tempPath = `${filePath}.tmp`;
-
+app.put('/api/settings', async (req, res) => {
   try {
-
-    fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf8');
-
-    fs.renameSync(tempPath, filePath);
-
+    const { deliveryFee, irbidDeliveryFee, discountCodes } = req.body;
+    let settings = await getSettingsDoc();
+    if (deliveryFee !== undefined) settings.deliveryFee = Number(deliveryFee);
+    if (irbidDeliveryFee !== undefined) settings.irbidDeliveryFee = Number(irbidDeliveryFee);
+    if (discountCodes !== undefined) settings.discountCodes = discountCodes;
+    await settings.save();
+    res.json({ message: 'Settings updated successfully', storeSettings: settings });
   } catch (err) {
-
-    console.error(`Error writing to ${filePath}:`, err);
-
+    res.status(500).json({ error: 'Failed to update settings' });
   }
+});
 
-};
-
-
-
-// Default Settings Initializer
-
-const getDefaultSettings = () => ({
-
-  deliveryFee: 2.00,
-
-  irbidDeliveryFee: 3.50,
-
-  discountCodes: {
-
-    "WELCOME10": 0.10,
-
-    "SAVE2": 2.00
-
+app.patch('/api/settings', async (req, res) => {
+  try {
+    const { deliveryFee, irbidDeliveryFee, discountCodes } = req.body;
+    let settings = await getSettingsDoc();
+    if (deliveryFee !== undefined) settings.deliveryFee = Number(deliveryFee);
+    if (irbidDeliveryFee !== undefined) settings.irbidDeliveryFee = Number(irbidDeliveryFee);
+    if (discountCodes !== undefined) settings.discountCodes = discountCodes;
+    await settings.save();
+    res.json({ message: 'Settings updated successfully', storeSettings: settings });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update settings' });
   }
-
 });
 
-
-
-// ==================== PRODUCTS ENDPOINTS ====================
-
-
-
-// GET All Products
-
-app.get('/api/products', (req, res) => {
-
-  const products = safeReadJSON(PRODUCTS_FILE, []);
-
-  res.json(products);
-
-});
-
-
-
-// GET Single Product
-
-app.get('/api/products/:id', (req, res) => {
-
-  const products = safeReadJSON(PRODUCTS_FILE, []);
-
-  const product = products.find(p => String(p.id || p._id) === String(req.params.id));
-
-  if (!product) return res.status(404).json({ error: 'Product not found' });
-
-  res.json(product);
-
-});
-
-
-
-// POST Create Product (Admin)
-
-app.post('/api/products', (req, res) => {
-
-  const products = safeReadJSON(PRODUCTS_FILE, []);
-
-  const newProduct = {
-
-    id: Date.now().toString(),
-
-    name: req.body.name || 'Unnamed Product',
-
-    price: Number(req.body.price) || 0,
-
-    category: req.body.category || 'General',
-
-    description: req.body.description || '',
-
-    stock: Number(req.body.stock) || 0,
-
-    featured: Boolean(req.body.featured),
-
-    image: req.body.image || '',
-
-    images: Array.isArray(req.body.images) ? req.body.images : [],
-
-    sizes: Array.isArray(req.body.sizes) ? req.body.sizes : [],
-
-    colors: Array.isArray(req.body.colors) ? req.body.colors : [],
-
-    createdAt: new Date().toISOString()
-
-  };
-
-
-
-  products.push(newProduct);
-
-  safeWriteJSON(PRODUCTS_FILE, products);
-
-  res.status(201).json(newProduct);
-
-});
-
-
-
-// PUT Update Product (Admin)
-
-app.put('/api/products/:id', (req, res) => {
-
-  let products = safeReadJSON(PRODUCTS_FILE, []);
-
-  const index = products.findIndex(p => String(p.id || p._id) === String(req.params.id));
-
-
-
-  if (index === -1) {
-
-    return res.status(404).json({ error: 'Product not found' });
-
+// --- CATEGORY ENDPOINTS ---
+app.get('/api/categories', async (req, res) => {
+  try {
+    const cats = await Category.find({});
+    // Fallback to default if empty
+    if (cats.length === 0) {
+      const defaults = ['Cleaning', 'Furniture', 'Makeup', 'Gifts', 'Kitchen', 'General'];
+      for (const d of defaults) {
+        await Category.updateOne({ name: d }, { name: d }, { upsert: true });
+      }
+      return res.json(defaults);
+    }
+    res.json(cats.map(c => c.name));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch categories' });
   }
-
-
-
-  products[index] = {
-
-    ...products[index],
-
-    ...req.body,
-
-    price: req.body.price !== undefined ? Number(req.body.price) : products[index].price,
-
-    stock: req.body.stock !== undefined ? Number(req.body.stock) : products[index].stock,
-
-    updatedAt: new Date().toISOString()
-
-  };
-
-
-
-  safeWriteJSON(PRODUCTS_FILE, products);
-
-  res.json(products[index]);
-
 });
 
-
-
-// DELETE Product (Admin)
-
-app.delete('/api/products/:id', (req, res) => {
-
-  let products = safeReadJSON(PRODUCTS_FILE, []);
-
-  const initialLength = products.length;
-
-  products = products.filter(p => String(p.id || p._id) !== String(req.params.id));
-
-
-
-  if (products.length === initialLength) {
-
-    return res.status(404).json({ error: 'Product not found' });
-
+app.post('/api/categories', async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (name && name.trim() !== '') {
+      const trimmed = name.trim();
+      await Category.updateOne({ name: trimmed }, { name: trimmed }, { upsert: true });
+      const cats = await Category.find({});
+      return res.status(201).json(cats.map(c => c.name));
+    }
+    res.status(400).json({ message: 'Category name is required' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add category' });
   }
-
-
-
-  safeWriteJSON(PRODUCTS_FILE, products);
-
-  res.json({ message: 'Product deleted successfully' });
-
 });
 
-
-
-// ==================== ORDERS ENDPOINTS ====================
-
-
-
-// GET All Orders
-
-app.get('/api/orders', (req, res) => {
-
-  const orders = safeReadJSON(ORDERS_FILE, []);
-
-  res.json(orders);
-
+app.delete('/api/categories/:name', async (req, res) => {
+  try {
+    const catName = req.params.name;
+    await Category.deleteOne({ name: catName });
+    await Product.updateMany({ category: catName }, { category: 'General' });
+    await Category.updateOne({ name: 'General' }, { name: 'General' }, { upsert: true });
+    
+    const cats = await Category.find({});
+    res.json({ message: 'Category removed successfully', categories: cats.map(c => c.name) });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete category' });
+  }
 });
 
-
-
-// POST Create Order (Frontend Checkout)
-
-app.post('/api/orders', (req, res) => {
-
-  const incomingOrder = req.body;
-
-
-
-  // Enforce basic validation
-
-  if (!incomingOrder.items || !Array.isArray(incomingOrder.items) || incomingOrder.items.length === 0) {
-
-    return res.status(400).json({ error: 'Order must contain at least one item.' });
-
+// --- PRODUCT ENDPOINTS ---
+app.get('/api/products', async (req, res) => {
+  try {
+    const products = await Product.find({});
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch products' });
   }
+});
 
+app.post('/api/products', async (req, res) => {
+  try {
+    const inputId = req.body.id !== undefined && req.body.id !== null ? String(req.body.id).trim() : '';
+    const finalId = inputId !== '' ? inputId : 'ITEM-' + Math.floor(1000 + Math.random() * 9000);
 
-
-  const phone = (incomingOrder.phone || (incomingOrder.customer && incomingOrder.customer.phone1) || '').trim();
-
-  if (!/^\d{10}$/.test(phone)) {
-
-    return res.status(400).json({ error: 'Valid 10-digit phone number is required.' });
-
+    const newProduct = new Product({
+      id: finalId,
+      _id: finalId,
+      name: req.body.name,
+      category: req.body.category || 'General',
+      price: Number(req.body.price),
+      stock: Number(req.body.stock),
+      image: req.body.image || '',
+      images: req.body.images || [],
+      description: req.body.description || '',
+      sizes: req.body.sizes || [],
+      colors: req.body.colors || [],
+      featured: Boolean(req.body.featured)
+    });
+    
+    await newProduct.save();
+    res.status(201).json(newProduct);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create product' });
   }
+});
 
-
-
-  const settings = safeReadJSON(SETTINGS_FILE, getDefaultSettings());
-
-  const orders = safeReadJSON(ORDERS_FILE, []);
-
-
-
-  // Calculate items subtotal on backend for safety
-
-  const calculatedSubtotal = incomingOrder.items.reduce((sum, item) => {
-
-    return sum + ((Number(item.price) || 0) * (Number(item.quantity) || 1));
-
-  }, 0);
-
-
-
-  // Dynamic regional delivery fee determination
-
-  const deliveryFee = incomingOrder.deliveryFee !== undefined 
-
-    ? Number(incomingOrder.deliveryFee) 
-
-    : (incomingOrder.address && incomingOrder.address.includes('Irbid') ? (settings.irbidDeliveryFee || 3.50) : (settings.deliveryFee || 2.00));
-
-
-
-  const discountAmount = Number(incomingOrder.discountAmount) || 0;
-
-  const grandTotal = Math.max(0, calculatedSubtotal + deliveryFee - discountAmount);
-
-
-
-  const newOrder = {
-
-    id: Date.now().toString(),
-
-    items: incomingOrder.items,
-
-    total: calculatedSubtotal,
-
-    deliveryFee: deliveryFee,
-
-    discountAmount: discountAmount,
-
-    grandTotal: grandTotal,
-
-    arabicName: incomingOrder.arabicName || (incomingOrder.customer && incomingOrder.customer.arabicName) || 'N/A',
-
-    phone: phone,
-
-    address: incomingOrder.address || (incomingOrder.customer && incomingOrder.customer.manualAddress) || 'N/A',
-
-    status: 'Pending',
-
-    customer: {
-
-      arabicName: incomingOrder.arabicName || (incomingOrder.customer && incomingOrder.customer.arabicName) || 'N/A',
-
-      phone1: phone,
-
-      manualAddress: incomingOrder.address || (incomingOrder.customer && incomingOrder.customer.manualAddress) || 'N/A',
-
-      paymentMethod: 'Cash on Delivery'
-
-    },
-
-    createdAt: new Date().toISOString()
-
-  };
-
-
-
-  orders.unshift(newOrder);
-
-  safeWriteJSON(ORDERS_FILE, orders);
-
-
-
-  // Deduct Inventory Stock
-
-  const products = safeReadJSON(PRODUCTS_FILE, []);
-
-  incomingOrder.items.forEach(cartItem => {
-
-    const pIndex = products.findIndex(p => String(p.id || p._id) === String(cartItem.id || cartItem._id));
-
-    if (pIndex !== -1) {
-
-      products[pIndex].stock = Math.max(0, (products[pIndex].stock || 0) - (cartItem.quantity || 1));
-
+// BULK PRODUCTS IMPORT ENDPOINT
+app.post('/api/products/import', async (req, res) => {
+  try {
+    const incomingProducts = req.body.products;
+    if (!Array.isArray(incomingProducts)) {
+      return res.status(400).json({ error: 'Invalid format. Expected an array of products.' });
     }
 
-  });
+    for (const item of incomingProducts) {
+      const pId = item.id || item._id ? String(item.id || item._id).trim() : 'ITEM-' + Math.floor(1000 + Math.random() * 9000);
+      
+      const formattedData = {
+        id: pId,
+        _id: pId,
+        name: item.name || 'Unnamed Product',
+        category: item.category || 'General',
+        price: Number(item.price) || 0,
+        stock: Number(item.stock) || 0,
+        image: item.image || '',
+        images: Array.isArray(item.images) ? item.images : [],
+        description: item.description || '',
+        sizes: Array.isArray(item.sizes) ? item.sizes : [],
+        colors: Array.isArray(item.colors) ? item.colors : [],
+        featured: Boolean(item.featured)
+      };
 
-  safeWriteJSON(PRODUCTS_FILE, products);
+      await Product.findOneAndUpdate({ id: pId }, formattedData, { upsert: true, new: true });
 
-
-
-  res.status(201).json({ message: 'Order created successfully', order: newOrder });
-
-});
-
-
-
-// PUT / PATCH Update Order Status (Admin)
-
-app.use('/api/orders/:id', (req, res, next) => {
-
-  if (req.method === 'PUT' || req.method === 'PATCH') {
-
-    let orders = safeReadJSON(ORDERS_FILE, []);
-
-    const index = orders.findIndex(o => String(o.id || o._id) === String(req.params.id));
-
-
-
-    if (index === -1) {
-
-      return res.status(404).json({ error: 'Order not found' });
-
+      if (formattedData.category) {
+        await Category.updateOne({ name: formattedData.category }, { name: formattedData.category }, { upsert: true });
+      }
     }
 
-
-
-    orders[index] = {
-
-      ...orders[index],
-
-      ...req.body,
-
-      updatedAt: new Date().toISOString()
-
-    };
-
-
-
-    safeWriteJSON(ORDERS_FILE, orders);
-
-    return res.json(orders[index]);
-
+    const allProducts = await Product.find({});
+    res.json({ success: true, message: `Successfully imported ${incomingProducts.length} products.`, products: allProducts });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to import products' });
   }
-
-  next();
-
 });
 
+app.put('/api/products/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    if (updateData.newId) {
+      updateData.id = updateData.newId.trim();
+      updateData._id = updateData.newId.trim();
+    }
 
-
-// DELETE Order (Admin)
-
-app.delete('/api/orders/:id', (req, res) => {
-
-  let orders = safeReadJSON(ORDERS_FILE, []);
-
-  const initialLength = orders.length;
-
-  orders = orders.filter(o => String(o.id || o._id) !== String(req.params.id));
-
-
-
-  if (orders.length === initialLength) {
-
-    return res.status(404).json({ error: 'Order not found' });
-
+    const product = await Product.findOneAndUpdate({ $or: [{ id }, { _id: id }] }, updateData, { new: true });
+    if (product) return res.json({ message: 'Product updated successfully', product });
+    res.status(404).json({ message: 'Product not found' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update product' });
   }
-
-
-
-  safeWriteJSON(ORDERS_FILE, orders);
-
-  res.json({ message: 'Order deleted successfully' });
-
 });
 
+app.patch('/api/products/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    if (updateData.newId) {
+      updateData.id = updateData.newId.trim();
+      updateData._id = updateData.newId.trim();
+    }
 
-
-// ==================== SETTINGS ENDPOINTS ====================
-
-
-
-// GET Settings
-
-app.get('/api/settings', (req, res) => {
-
-  const settings = safeReadJSON(SETTINGS_FILE, getDefaultSettings());
-
-  res.json(settings);
-
-});
-
-
-
-// PUT / PATCH Update Settings
-
-app.use('/api/settings', (req, res, next) => {
-
-  if (req.method === 'PUT' || req.method === 'PATCH') {
-
-    const currentSettings = safeReadJSON(SETTINGS_FILE, getDefaultSettings());
-
-    const updatedSettings = {
-
-      ...currentSettings,
-
-      ...req.body,
-
-      deliveryFee: req.body.deliveryFee !== undefined ? Number(req.body.deliveryFee) : currentSettings.deliveryFee,
-
-      irbidDeliveryFee: req.body.irbidDeliveryFee !== undefined ? Number(req.body.irbidDeliveryFee) : currentSettings.irbidDeliveryFee
-
-    };
-
-
-
-    safeWriteJSON(SETTINGS_FILE, updatedSettings);
-
-    return res.json(updatedSettings);
-
+    const product = await Product.findOneAndUpdate({ $or: [{ id }, { _id: id }] }, updateData, { new: true });
+    if (product) return res.json({ message: 'Product updated successfully', product });
+    res.status(404).json({ message: 'Product not found' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update product' });
   }
-
-  next();
-
 });
 
+app.delete('/api/products/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Product.deleteOne({ $or: [{ id }, { _id: id }] });
+    res.json({ message: 'Product removed successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete product' });
+  }
+});
 
+// --- ORDER ENDPOINTS ---
+app.post('/api/orders', async (req, res) => {
+  try {
+    const incomingOrder = req.body;
+    const items = incomingOrder.items || [];
 
-// Start Server
+    for (const item of items) {
+      const prod = await Product.findOne({ $or: [{ id: String(item.id || item._id) }, { _id: String(item.id || item._id) }] });
+      if (prod) {
+        prod.stock = Math.max(0, prod.stock - item.quantity);
+        await prod.save();
+      }
+    }
 
+    const count = await Order.countDocuments();
+    const subtotal = incomingOrder.total || items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+    const settings = await getSettingsDoc();
+    const deliveryFee = incomingOrder.deliveryFee !== undefined ? Number(incomingOrder.deliveryFee) : settings.deliveryFee;
+    let discountAmount = incomingOrder.discountAmount || 0;
+    const grandTotal = Math.max(0, subtotal + deliveryFee - discountAmount);
+
+    const newOrder = new Order({
+      id: count + 1,
+      items: items,
+      total: subtotal,
+      deliveryFee: deliveryFee,
+      discountAmount: discountAmount,
+      grandTotal: grandTotal,
+      status: 'Pending',
+      customer: {
+        arabicName: incomingOrder.customer?.arabicName || incomingOrder.arabicName || 'N/A',
+        phone1: incomingOrder.customer?.phone1 || incomingOrder.phone || 'N/A',
+        phone2: incomingOrder.customer?.phone2 || incomingOrder.phone2 || '',
+        manualAddress: incomingOrder.customer?.manualAddress || incomingOrder.address || 'N/A',
+        mapCoordinates: incomingOrder.customer?.mapCoordinates || 'Not pinned',
+        paymentMethod: 'Cash on Delivery'
+      }
+    });
+
+    await newOrder.save();
+    res.status(201).json({ success: true, order: newOrder });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create order' });
+  }
+});
+
+// BULK ORDERS IMPORT ENDPOINT
+app.post('/api/orders/import', async (req, res) => {
+  try {
+    const incomingOrders = req.body.orders;
+    if (!Array.isArray(incomingOrders)) {
+      return res.status(400).json({ error: 'Invalid format. Expected an array of orders.' });
+    }
+
+    const settings = await getSettingsDoc();
+    let count = await Order.countDocuments();
+
+    for (const ord of incomingOrders) {
+      const oId = ord.id || ord._id ? Number(ord.id || ord._id) : ++count;
+
+      const formattedOrder = {
+        id: oId,
+        items: Array.isArray(ord.items) ? ord.items : [],
+        total: Number(ord.total) || 0,
+        deliveryFee: Number(ord.deliveryFee) || settings.deliveryFee,
+        discountAmount: Number(ord.discountAmount) || 0,
+        grandTotal: Number(ord.grandTotal) || Number(ord.total || 0) + 2.00,
+        status: ord.status || 'Pending',
+        createdAt: ord.createdAt || new Date().toISOString(),
+        customer: {
+          arabicName: ord.customer?.arabicName || ord.arabicName || 'N/A',
+          phone1: ord.customer?.phone1 || ord.phone || 'N/A',
+          phone2: ord.customer?.phone2 || ord.phone2 || '',
+          manualAddress: ord.customer?.manualAddress || ord.address || 'N/A',
+          mapCoordinates: ord.customer?.mapCoordinates || 'Not pinned',
+          paymentMethod: 'Cash on Delivery'
+        }
+      };
+
+      await Order.findOneAndUpdate({ id: oId }, formattedOrder, { upsert: true, new: true });
+    }
+
+    const allOrders = await Order.find({});
+    res.json({ success: true, message: `Successfully imported ${incomingOrders.length} orders.`, orders: allOrders });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to import orders' });
+  }
+});
+
+app.get('/api/orders', async (req, res) => {
+  try {
+    const orders = await Order.find({});
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch orders' });
+  }
+});
+
+app.put('/api/orders/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, customer, phone, address, items, total, grandTotal } = req.body;
+    
+    let order = await Order.findOne({ $or: [{ id: Number(id) }, { _id: id }] });
+    if (order) {
+      if (status !== undefined) order.status = status;
+      if (customer !== undefined) order.customer = customer;
+      if (phone !== undefined) {
+        if (!order.customer) order.customer = {};
+        order.customer.phone1 = phone;
+      }
+      if (address !== undefined) {
+        if (!order.customer) order.customer = {};
+        order.customer.manualAddress = address;
+      }
+      if (items !== undefined) order.items = items;
+      if (total !== undefined) order.total = Number(total);
+      if (grandTotal !== undefined) order.grandTotal = Number(grandTotal);
+
+      await order.save();
+      return res.json({ message: 'Order updated successfully', order });
+    }
+    res.status(404).json({ message: 'Order not found' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update order' });
+  }
+});
+
+app.patch('/api/orders/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, customer, phone, address, items, total, grandTotal } = req.body;
+    
+    let order = await Order.findOne({ $or: [{ id: Number(id) }, { _id: id }] });
+    if (order) {
+      if (status !== undefined) order.status = status;
+      if (customer !== undefined) order.customer = customer;
+      if (phone !== undefined) {
+        if (!order.customer) order.customer = {};
+        order.customer.phone1 = phone;
+      }
+      if (address !== undefined) {
+        if (!order.customer) order.customer = {};
+        order.customer.manualAddress = address;
+      }
+      if (items !== undefined) order.items = items;
+      if (total !== undefined) order.total = Number(total);
+      if (grandTotal !== undefined) order.grandTotal = Number(grandTotal);
+
+      await order.save();
+      return res.json({ message: 'Order updated successfully', order });
+    }
+    res.status(404).json({ message: 'Order not found' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update order' });
+  }
+});
+
+app.delete('/api/orders/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Order.deleteOne({ $or: [{ id: Number(id) }, { _id: id }] });
+    res.json({ success: true, message: 'Order deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete order' });
+  }
+});
+
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-
-  console.log(`Karam Stores Backend running on port ${PORT}`);
-
+  console.log(`Backend server running on port ${PORT}`);
 });
