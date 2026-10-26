@@ -224,7 +224,6 @@ export default function StoreApp() {
     fetchSettings();
   }, []);
 
-  // --- INTERCEPT MOBILE & BROWSER BACK BUTTON ---
   useEffect(() => {
     const isPopupActive = 
       selectedProduct !== null || 
@@ -556,28 +555,29 @@ export default function StoreApp() {
         </div>
       )}
 
-      {/* VIEW: PRODUCT DETAILS (EXACTLY MATCHING RZ REFERENCE DESIGN) */}
+      {/* VIEW: PRODUCT DETAILS (FULL-WIDTH IMAGE, NO CARD SHAPE) */}
       {selectedProduct ? (
-        <div style={{ width: '92%', maxWidth: '850px', margin: '1.5rem auto' }}>
-          <button onClick={() => window.history.back()} className="back-button">
-            {t.backToCatalog}
-          </button>
-
-          {/* Breadcrumb path like reference */}
-          <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '1rem', color: '#FFF7EE' }}>
-            Home / {selectedProduct.category || 'Kitchen'} / {selectedProduct.name}
+        <div style={{ width: '100%', margin: '0 auto', paddingBottom: '3rem' }}>
+          <div style={{ width: '92%', maxWidth: '850px', margin: '1rem auto' }}>
+            <button onClick={() => window.history.back()} className="back-button">
+              {t.backToCatalog}
+            </button>
+            <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '1rem', color: '#FFF7EE' }}>
+              Home / {selectedProduct.category || 'Kitchen'} / {selectedProduct.name}
+            </div>
           </div>
 
-          <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '14px', border: '1px solid rgba(255,247,238,0.2)', marginBottom: '2rem' }}>
-            
-            {/* Main Product Image Display */}
-            <div style={{ width: '100%', aspectRatio: '4 / 3', overflow: 'hidden', borderRadius: '10px', background: '#242323', marginBottom: '1rem', border: '1px solid rgba(255,247,238,0.2)' }}>
-              <img src={activeImage || selectedProduct.image || 'https://via.placeholder.com/400'} alt={selectedProduct.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          {/* Full-Width Image Banner Display */}
+          <div style={{ width: '100%', background: '#1c1b1b', borderTop: '1px solid rgba(255,247,238,0.15)', borderBottom: '1px solid rgba(255,247,238,0.15)', marginBottom: '1.5rem', overflow: 'hidden' }}>
+            <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto', aspectRatio: '16 / 9', maxHeight: '450px', background: '#242323' }}>
+              <img src={activeImage || selectedProduct.image || 'https://via.placeholder.com/600'} alt={selectedProduct.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </div>
-            
-            {/* Thumbnails Gallery Slider matching reference */}
+          </div>
+
+          <div style={{ width: '92%', maxWidth: '850px', margin: '0 auto' }}>
+            {/* Thumbnails Gallery Slider */}
             {selectedProduct.images && selectedProduct.images.length > 0 && (
-              <div style={{ display: 'flex', gap: '0.6rem', overflowX: 'auto', paddingBottom: '0.6rem', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.6rem', overflowX: 'auto', paddingBottom: '0.6rem', marginBottom: '1.5rem', justifyContent: 'center' }}>
                 {[selectedProduct.image, ...selectedProduct.images].filter(Boolean).map((imgUrl, idx) => (
                   <div key={idx} style={{ width: '65px', height: '65px', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '8px', flexShrink: 0, background: '#242323' }}>
                     <img src={imgUrl} alt="" onClick={() => setActiveImage(imgUrl)} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer', border: activeImage === imgUrl ? '2px solid #FD7100' : '1px solid rgba(255,247,238,0.2)' }} />
@@ -586,93 +586,96 @@ export default function StoreApp() {
               </div>
             )}
 
-            {/* Product Title & Category */}
-            <div style={{ marginBottom: '1rem' }}>
-              <span style={{ fontSize: '0.8rem', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '0.3rem', color: '#FD7100' }}>
-                {selectedProduct.category || 'Cast Aluminum'}
-              </span>
-              <h1 style={{ margin: 0, fontSize: '1.6rem', color: '#FFF7EE', fontWeight: '800', lineHeight: '1.3' }}>
-                {selectedProduct.name}
-              </h1>
-            </div>
-
-            {/* VARIANT BOX EXACTLY AS IN REFERENCE */}
-            <div style={{ background: '#242323', border: '1px solid rgba(255,247,238,0.2)', borderRadius: '10px', padding: '1rem', marginBottom: '1.2rem' }}>
-              <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', opacity: 0.6, letterSpacing: '0.5px', marginBottom: '0.6rem', fontWeight: 'bold' }}>CHOOSE VARIANTS</div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#FFF7EE' }}>{t.selectColor}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: selectedProduct.color || '#ef4444', border: '2px solid #FFF7EE', boxShadow: '0 0 5px rgba(0,0,0,0.5)' }}></div>
-                <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#FFF7EE' }}>{selectedProduct.colorName || 'Red'}</span>
-              </div>
-            </div>
-
-            {/* SKU and ISBN */}
-            <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-              <span>SKU: {selectedProduct.sku || 'HLO-52398'}</span>
-              <span>ISBN: {selectedProduct.isbn || ''}</span>
-            </div>
-
-            {/* Price */}
-            <div style={{ fontSize: '1.8rem', fontWeight: '900', color: '#FFF7EE', marginBottom: '1.2rem' }}>
-              {Number(selectedProduct.price).toFixed(3)} JD
-            </div>
-
-            {/* Quantity Selector & Add To Cart Button Row */}
-            <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', border: '1px solid rgba(255,247,238,0.3)', borderRadius: '8px', background: '#242323' }}>
-                <button onClick={() => setQuantity(Math.max(1, quantity - 1))} style={{ background: 'transparent', color: '#FFF7EE', border: 'none', padding: '0.6rem 1rem', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>-</button>
-                <span style={{ padding: '0 0.8rem', fontSize: '1rem', fontWeight: 'bold', color: '#FFF7EE' }}>{quantity}</span>
-                <button onClick={() => setQuantity(quantity + 1)} style={{ background: 'transparent', color: '#FFF7EE', border: 'none', padding: '0.6rem 1rem', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>+</button>
+            <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '14px', border: '1px solid rgba(255,247,238,0.2)', marginBottom: '2rem' }}>
+              
+              {/* Product Title & Category */}
+              <div style={{ marginBottom: '1rem' }}>
+                <span style={{ fontSize: '0.8rem', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '0.3rem', color: '#FD7100' }}>
+                  {selectedProduct.category || 'Cast Aluminum'}
+                </span>
+                <h1 style={{ margin: 0, fontSize: '1.6rem', color: '#FFF7EE', fontWeight: '800', lineHeight: '1.3' }}>
+                  {selectedProduct.name}
+                </h1>
               </div>
 
-              <button disabled={selectedProduct.stock <= 0} onClick={addToCartFromDetails} className="btn-primary" style={{ flex: 1, background: selectedProduct.stock > 0 ? '#000' : '#555', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', padding: '0.8rem', borderRadius: '8px', fontWeight: 'bold', cursor: selectedProduct.stock > 0 ? 'pointer' : 'not-allowed', fontSize: '0.95rem' }}>
-                {selectedProduct.stock > 0 ? t.addToCart : t.outOfStock}
-              </button>
-            </div>
-
-            {/* Buy It Now Button */}
-            <button onClick={buyItNowAction} style={{ width: '100%', background: 'transparent', color: '#FFF7EE', border: '1px solid #FFF7EE', padding: '0.8rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', marginBottom: '1.5rem', transition: 'all 0.2s' }}>
-              {t.buyItNow}
-            </button>
-
-            {/* Detailed Description & Features matching the image text precisely */}
-            <div style={{ borderTop: '1px solid rgba(255,247,238,0.15)', paddingTop: '1.2rem', color: '#FFF7EE', fontSize: '0.9rem', lineHeight: '1.6' }}>
-              <p style={{ margin: '0 0 1rem 0', opacity: 0.9 }}>
-                The <strong>Royal Cast Aluminum Casserole</strong> is designed to provide healthy, safe, and high-performance cooking. It combines durability and quality, making it ideal for everyday kitchen use.
-              </p>
-
-              <h4 style={{ margin: '0 0 0.6rem 0', fontSize: '1rem', color: '#FD7100', fontWeight: '700' }}>Features:</h4>
-              <ol style={{ paddingLeft: '1.2rem', margin: 0, display: 'flex', flexDirection: 'column', gap: '0.6rem', opacity: 0.85 }}>
-                <li>A healthy cooking pot, free from <strong>lead, silver</strong>, and harmful chemicals such as <strong>PFOA</strong> commonly used in cookware manufacturing.</li>
-                <li>Dishwasher and oven safe, with heat resistance up to <strong>230°C</strong>.</li>
-                <li>Made from high-quality cast aluminum with a <strong>non-stick, durable surface</strong>.</li>
-                <li>Suitable for all types of cooktops: <strong>gas, electric, and ceramic</strong>.</li>
-                <li>The inner lid features a <strong>steam condensation system</strong> that enhances cooking efficiency and preserves flavor.</li>
-              </ol>
-            </div>
-
-          </div>
-
-          {/* RECOMMENDED / SIMILAR PRODUCTS SECTION MATCHING REFERENCE */}
-          <div style={{ marginTop: '2.5rem' }}>
-            <h3 style={{ fontSize: '1.1rem', color: '#FFF7EE', marginBottom: '1rem', fontWeight: '700', borderBottom: '1px solid rgba(255,247,238,0.15)', paddingBottom: '0.5rem' }}>
-              {t.similarOptions}
-            </h3>
-            <div className="grid-2col">
-              {similarProducts.map(simProd => (
-                <div key={simProd.id || simProd._id} onClick={() => openProductDetails(simProd)} className="store-card">
-                  <div>
-                    <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.5rem', background: '#242323' }}>
-                      <img src={simProd.image || 'https://via.placeholder.com/200'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                    <h4 className="product-title">{simProd.name}</h4>
-                    <p style={{ margin: '0 0 0.6rem 0', fontSize: '0.9rem', fontWeight: '700', color: '#FD7100' }}>{Number(simProd.price).toFixed(3)} JD</p>
-                  </div>
-                  <button onClick={(e) => { e.stopPropagation(); openProductDetails(simProd); }} className="btn-primary" style={{ width: '100%', padding: '0.4rem', fontSize: '0.75rem' }}>
-                    {t.viewDetails}
-                  </button>
+              {/* VARIANT BOX */}
+              <div style={{ background: '#242323', border: '1px solid rgba(255,247,238,0.2)', borderRadius: '10px', padding: '1rem', marginBottom: '1.2rem' }}>
+                <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', opacity: 0.6, letterSpacing: '0.5px', marginBottom: '0.6rem', fontWeight: 'bold' }}>CHOOSE VARIANTS</div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#FFF7EE' }}>{t.selectColor}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: selectedProduct.color || '#ef4444', border: '2px solid #FFF7EE', boxShadow: '0 0 5px rgba(0,0,0,0.5)' }}></div>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#FFF7EE' }}>{selectedProduct.colorName || 'Red'}</span>
                 </div>
-              ))}
+              </div>
+
+              {/* SKU and ISBN */}
+              <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                <span>SKU: {selectedProduct.sku || 'HLO-52398'}</span>
+                <span>ISBN: {selectedProduct.isbn || ''}</span>
+              </div>
+
+              {/* Price */}
+              <div style={{ fontSize: '1.8rem', fontWeight: '900', color: '#FFF7EE', marginBottom: '1.2rem' }}>
+                {Number(selectedProduct.price).toFixed(3)} JD
+              </div>
+
+              {/* Quantity Selector & Add To Cart Button Row */}
+              <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', border: '1px solid rgba(255,247,238,0.3)', borderRadius: '8px', background: '#242323' }}>
+                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))} style={{ background: 'transparent', color: '#FFF7EE', border: 'none', padding: '0.6rem 1rem', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>-</button>
+                  <span style={{ padding: '0 0.8rem', fontSize: '1rem', fontWeight: 'bold', color: '#FFF7EE' }}>{quantity}</span>
+                  <button onClick={() => setQuantity(quantity + 1)} style={{ background: 'transparent', color: '#FFF7EE', border: 'none', padding: '0.6rem 1rem', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>+</button>
+                </div>
+
+                <button disabled={selectedProduct.stock <= 0} onClick={addToCartFromDetails} className="btn-primary" style={{ flex: 1, background: selectedProduct.stock > 0 ? '#000' : '#555', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', padding: '0.8rem', borderRadius: '8px', fontWeight: 'bold', cursor: selectedProduct.stock > 0 ? 'pointer' : 'not-allowed', fontSize: '0.95rem' }}>
+                  {selectedProduct.stock > 0 ? t.addToCart : t.outOfStock}
+                </button>
+              </div>
+
+              {/* Buy It Now Button */}
+              <button onClick={buyItNowAction} style={{ width: '100%', background: 'transparent', color: '#FFF7EE', border: '1px solid #FFF7EE', padding: '0.8rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', marginBottom: '1.5rem', transition: 'all 0.2s' }}>
+                {t.buyItNow}
+              </button>
+
+              {/* Detailed Description & Features */}
+              <div style={{ borderTop: '1px solid rgba(255,247,238,0.15)', paddingTop: '1.2rem', color: '#FFF7EE', fontSize: '0.9rem', lineHeight: '1.6' }}>
+                <p style={{ margin: '0 0 1rem 0', opacity: 0.9 }}>
+                  The <strong>Royal Cast Aluminum Casserole</strong> is designed to provide healthy, safe, and high-performance cooking. It combines durability and quality, making it ideal for everyday kitchen use.
+                </p>
+
+                <h4 style={{ margin: '0 0 0.6rem 0', fontSize: '1rem', color: '#FD7100', fontWeight: '700' }}>Features:</h4>
+                <ol style={{ paddingLeft: '1.2rem', margin: 0, display: 'flex', flexDirection: 'column', gap: '0.6rem', opacity: 0.85 }}>
+                  <li>A healthy cooking pot, free from <strong>lead, silver</strong>, and harmful chemicals such as <strong>PFOA</strong> commonly used in cookware manufacturing.</li>
+                  <li>Dishwasher and oven safe, with heat resistance up to <strong>230°C</strong>.</li>
+                  <li>Made from high-quality cast aluminum with a <strong>non-stick, durable surface</strong>.</li>
+                  <li>Suitable for all types of cooktops: <strong>gas, electric, and ceramic</strong>.</li>
+                  <li>The inner lid features a <strong>steam condensation system</strong> that enhances cooking efficiency and preserves flavor.</li>
+                </ol>
+              </div>
+
+            </div>
+
+            {/* RECOMMENDED PRODUCTS */}
+            <div style={{ marginTop: '2.5rem' }}>
+              <h3 style={{ fontSize: '1.1rem', color: '#FFF7EE', marginBottom: '1rem', fontWeight: '700', borderBottom: '1px solid rgba(255,247,238,0.15)', paddingBottom: '0.5rem' }}>
+                {t.similarOptions}
+              </h3>
+              <div className="grid-2col">
+                {similarProducts.map(simProd => (
+                  <div key={simProd.id || simProd._id} onClick={() => openProductDetails(simProd)} className="store-card">
+                    <div>
+                      <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.5rem', background: '#242323' }}>
+                        <img src={simProd.image || 'https://via.placeholder.com/200'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </div>
+                      <h4 className="product-title">{simProd.name}</h4>
+                      <p style={{ margin: '0 0 0.6rem 0', fontSize: '0.9rem', fontWeight: '700', color: '#FD7100' }}>{Number(simProd.price).toFixed(3)} JD</p>
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); openProductDetails(simProd); }} className="btn-primary" style={{ width: '100%', padding: '0.4rem', fontSize: '0.75rem' }}>
+                      {t.viewDetails}
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -922,22 +925,22 @@ export default function StoreApp() {
         </div>
       </footer>
 
-      {/* MOBILE BOTTOM APP NAVIGATION BAR */}
+      {/* --- MOBILE BOTTOM APP NAVIGATION BAR (WITH PNG ICONS READY IN PUBLIC FOLDER) --- */}
       <div className="bottom-nav">
         <button onClick={() => { setSelectedProduct(null); setSelectedCategoryView(null); setIsMoreCatalogOpen(false); setSubmittedSearchQuery(''); setIsSearchOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="bottom-nav-btn">
-          <span className="bottom-nav-icon">⌂</span>
+          <img src="/icons/home.png" alt="Home" className="bottom-nav-icon" style={{ width: '22px', height: '22px', objectFit: 'contain' }} onError={(e) => { e.target.style.display = 'none'; }} />
           <span>{t.navHome}</span>
         </button>
         <button onClick={() => { window.history.pushState({ modalOpen: true }, ''); setIsSearchOpen(!isSearchOpen); }} className="bottom-nav-btn">
-          <span className="bottom-nav-icon">⚲</span>
+          <img src="/icons/search.png" alt="Search" className="bottom-nav-icon" style={{ width: '22px', height: '22px', objectFit: 'contain' }} onError={(e) => { e.target.style.display = 'none'; }} />
           <span>{t.navSearch}</span>
         </button>
         <button onClick={() => { window.history.pushState({ modalOpen: true }, ''); setIsCartOpen(true); }} className="bottom-nav-btn">
-          <span className="bottom-nav-icon">▢</span>
+          <img src="/icons/cart.png" alt="Cart" className="bottom-nav-icon" style={{ width: '22px', height: '22px', objectFit: 'contain' }} onError={(e) => { e.target.style.display = 'none'; }} />
           <span>{t.navCart}</span>
         </button>
         <button onClick={() => { window.history.pushState({ modalOpen: true }, ''); setIsOrderHistoryOpen(true); }} className="bottom-nav-btn">
-          <span className="bottom-nav-icon">≡</span>
+          <img src="/icons/orders.png" alt="Orders" className="bottom-nav-icon" style={{ width: '22px', height: '22px', objectFit: 'contain' }} onError={(e) => { e.target.style.display = 'none'; }} />
           <span>{t.navOrders}</span>
         </button>
       </div>
