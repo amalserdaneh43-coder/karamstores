@@ -73,7 +73,7 @@ const translations = {
     navOrders: "Orders",
     storeInfoTitle: "Store Information & Delivery",
     storeHours: "Working Hours: 9:00 AM - 10:00 PM (Daily)",
-    storeLocation: "Location: Amman, Jordan (Cash on Delivery Available)",
+    storeLocation: "Location: Irbid, Jordan ",
     storeSupport: "Customer Service: 0781794172",
     footerSlogan: "كل ما يلزم المنزل تحت سقف واحد"
   },
@@ -148,7 +148,7 @@ const translations = {
     navOrders: "الطلبات",
     storeInfoTitle: "معلومات المتجر والتوصيل",
     storeHours: "ساعات العمل: 9:00 صباحاً - 10:00 مساءً (يومياً)",
-    storeLocation: "الموقع: عمان، الأردن (متوفر الدفع عند الاستلام)",
+    storeLocation: "الموقع: اربد، الأردن (متوفر الدفع عند الاستلام)",
     storeSupport: "خدمة العملاء: 0781794172",
     footerSlogan: "كل ما يلزم المنزل تحت سقف واحد"
   }
@@ -839,7 +839,7 @@ export default function StoreApp() {
         </>
       )}
 
-      {/* --- ADDED NEW FOOTER MATCHING THEME --- */}
+      {/* --- EXACT MATCH FOOTER --- */}
       <footer style={{
         background: '#1c1b1b',
         color: '#FFF7EE',
@@ -851,44 +851,44 @@ export default function StoreApp() {
       }}>
         <div style={{ maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
           
-          {/* Logo / Store Name */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', justifyContent: 'center' }}>
-            <img src="/logo.jpg" alt="Logo" style={{ width: '42px', height: '42px', objectFit: 'cover', borderRadius: '8px', border: '1px solid rgba(255,247,238,0.2)' }} onError={(e) => { e.target.style.display = 'none'; }} />
-            <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: '800', color: '#FD7100', letterSpacing: '-0.5px' }}>
-              {t.storeName}
-            </h3>
-          </div>
+          {/* Logo */}
+          <img src="/logo.jpg" alt="Logo" style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '10px', border: '1px solid rgba(255,247,238,0.2)' }} onError={(e) => { e.target.style.display = 'none'; }} />
+
+          {/* Store Name */}
+          <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '800', color: '#FD7100', letterSpacing: '-0.5px' }}>
+            {t.storeName}
+          </h3>
 
           {/* Slogan */}
           <p style={{ margin: 0, fontSize: '0.95rem', opacity: 0.85, fontWeight: '600' }}>
             {t.footerSlogan}
           </p>
 
-          {/* Social Media Links */}
-          <div style={{ display: 'flex', gap: '1.5rem', margin: '0.5rem 0', alignItems: 'center' }}>
+          {/* Social Media Links (Instagram & Facebook Side-by-Side Buttons) */}
+          <div style={{ display: 'flex', gap: '1rem', margin: '0.5rem 0', justifyContent: 'center', flexWrap: 'wrap' }}>
             <a 
-              href="https://facebook.com" 
+              href="https://www.instagram.com/karamstores.jo?srtk=MnFvODFwdDhsanh0" 
               target="_blank" 
               rel="noopener noreferrer"
-              style={{ color: '#FFF7EE', fontSize: '0.9rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#2D2C2C', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid rgba(255,247,238,0.1)', fontWeight: 'bold' }}
+              style={{ color: '#FFF7EE', fontSize: '0.85rem', textDecoration: 'none', background: '#2D2C2C', padding: '0.5rem 1.2rem', borderRadius: '8px', border: '1px solid rgba(255,247,238,0.15)', fontWeight: 'bold' }}
             >
-              📘 Facebook
+              
             </a>
             <a 
-              href="https://instagram.com" 
+              href="https://www.facebook.com/share/19XAjcu342/" 
               target="_blank" 
               rel="noopener noreferrer"
-              style={{ color: '#FFF7EE', fontSize: '0.9rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#2D2C2C', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid rgba(255,247,238,0.1)', fontWeight: 'bold' }}
+              style={{ color: '#FFF7EE', fontSize: '0.85rem', textDecoration: 'none', background: '#2D2C2C', padding: '0.5rem 1.2rem', borderRadius: '8px', border: '1px solid rgba(255,247,238,0.15)', fontWeight: 'bold' }}
             >
-              📷 Instagram
+              
             </a>
           </div>
 
           {/* Divider Line */}
-          <div style={{ width: '100%', height: '1px', background: 'rgba(255,247,238,0.1)', margin: '0.8rem 0' }}></div>
+          <div style={{ width: '100%', height: '1px', background: 'rgba(255,247,238,0.15)', margin: '0.8rem 0' }}></div>
 
           {/* Copyright */}
-          <div style={{ fontSize: '0.85rem', opacity: 0.6 }}>
+          <div style={{ fontSize: '0.8rem', opacity: 0.6 }}>
             Copyright &copy; 2026 {t.storeName}. All rights reserved.
           </div>
 
