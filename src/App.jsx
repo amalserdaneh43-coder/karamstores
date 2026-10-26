@@ -16,9 +16,10 @@ const translations = {
     selectSize: "Select Size:",
     selectColor: "Select Color:",
     addToCart: "Add to Cart",
+    buyItNow: "BUY IT NOW",
     outOfStock: "Out of Stock",
-    similarOptions: "Similar Options in",
-    viewDetails: "View Details",
+    similarOptions: "Recommended | You may also like these products",
+    viewDetails: "View product",
     cartReview: "Your Shopping Cart & Review",
     emptyCart: "Your cart is empty.",
     subtotal: "Subtotal:",
@@ -87,9 +88,10 @@ const translations = {
     selectSize: "اختر المقاس:",
     selectColor: "اختر اللون:",
     addToCart: "أضف إلى السلة",
+    buyItNow: "اشتري الآن",
     outOfStock: "غير متوفر في المخزون",
-    similarOptions: "خيارات مشابهة في",
-    viewDetails: "عرض التفاصيل",
+    similarOptions: "منتجات مقترحة قد تعجبك",
+    viewDetails: "عرض المنتج",
     cartReview: "سلة التسوق والمراجعة",
     emptyCart: "سلة التسوق فارغة.",
     subtotal: "المجموع الفرعي:",
@@ -183,6 +185,7 @@ export default function StoreApp() {
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
   const [activeImage, setActiveImage] = useState('');
+  const [quantity, setQuantity] = useState(1);
 
   const [arabicName, setArabicName] = useState('');
   const [phone, setPhone] = useState('');
@@ -272,28 +275,35 @@ export default function StoreApp() {
     setIsSearchOpen(false);
     setActiveImage(product.image || (product.images && product.images[0]) || '');
     setSelectedSize(product.sizes && product.sizes.length > 0 ? product.sizes[0] : '');
-    setSelectedColor(product.colors && product.colors.length > 0 ? product.colors[0] : '');
+    setSelectedColor(product.colors && product.colors.length > 0 ? product.colors[0] : (product.color || 'Red'));
+    setQuantity(1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const addToCartFromDetails = () => {
     if (!selectedProduct) return;
-    addToCart({ ...selectedProduct, selectedSize, selectedColor });
+    addToCart({ ...selectedProduct, selectedSize, selectedColor }, quantity);
     triggerToast(lang === 'ar' ? 'تمت إضافة المنتج إلى السلة بنجاح!' : 'Product added to cart successfully!');
   };
 
-  const addToCart = (product) => {
+  const buyItNowAction = () => {
+    if (!selectedProduct) return;
+    addToCart({ ...selectedProduct, selectedSize, selectedColor }, quantity);
+    setIsCartOpen(true);
+  };
+
+  const addToCart = (product, qty = 1) => {
     setCart(prev => {
       const pId = product.id || product._id;
       const existing = prev.find(item => (item.id || item._id) === pId && item.selectedSize === product.selectedSize && item.selectedColor === product.selectedColor);
       if (existing) {
         return prev.map(item => 
           ((item.id || item._id) === pId && item.selectedSize === product.selectedSize && item.selectedColor === product.selectedColor)
-            ? { ...item, quantity: item.quantity + 1 } 
+            ? { ...item, quantity: item.quantity + qty } 
             : item
         );
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, { ...product, quantity: qty }];
     });
   };
 
@@ -466,7 +476,7 @@ export default function StoreApp() {
 
   const similarProducts = selectedProduct 
     ? products.filter(p => p.category === selectedProduct.category && (p.id || p._id) !== (selectedProduct.id || selectedProduct._id))
-    : [];
+    : products.slice(0, 2);
 
   const categoriesList = [
     { key: 'Cleaning', labelEn: t.catCleaning, labelAr: t.catCleaning, iconSrc: '/icons/cleaning.png' },
@@ -546,92 +556,125 @@ export default function StoreApp() {
         </div>
       )}
 
-      {/* VIEW: PRODUCT DETAILS */}
+      {/* VIEW: PRODUCT DETAILS (EXACTLY MATCHING RZ REFERENCE DESIGN) */}
       {selectedProduct ? (
-        <div style={{ width: '92%', maxWidth: '800px', margin: '1.5rem auto' }}>
+        <div style={{ width: '92%', maxWidth: '850px', margin: '1.5rem auto' }}>
           <button onClick={() => window.history.back()} className="back-button">
             {t.backToCatalog}
           </button>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem', background: '#2D2C2C', padding: '1.2rem', borderRadius: '14px', border: '1px solid rgba(255,247,238,0.2)', marginBottom: '2rem' }}>
-            <div>
-              <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '10px', background: '#242323', marginBottom: '0.8rem', border: '1px solid rgba(255,247,238,0.2)' }}>
-                <img src={activeImage || selectedProduct.image || 'https://via.placeholder.com/400'} alt={selectedProduct.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </div>
-              
-              {selectedProduct.images && selectedProduct.images.length > 0 && (
-                <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.4rem' }}>
-                  {[selectedProduct.image, ...selectedProduct.images].filter(Boolean).map((imgUrl, idx) => (
-                    <div key={idx} style={{ width: '50px', height: '50px', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', flexShrink: 0 }}>
-                      <img src={imgUrl} alt="" onClick={() => setActiveImage(imgUrl)} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer', border: activeImage === imgUrl ? '2px solid #FD7100' : '1px solid rgba(255,247,238,0.2)' }} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <span className="badge-category">{selectedProduct.category || 'General'}</span>
-              <h1 style={{ margin: '0.5rem 0 0.4rem 0', fontSize: '1.5rem', color: '#FFF7EE', fontWeight: '800' }}>{selectedProduct.name}</h1>
-              <p style={{ fontSize: '1.3rem', fontWeight: '800', color: '#FD7100', margin: '0 0 1rem 0' }}>{Number(selectedProduct.price).toFixed(2)} JD</p>
-              
-              <p style={{ color: '#FFF7EE', opacity: 0.85, lineHeight: '1.5', fontSize: '0.9rem', marginBottom: '1.2rem' }}>
-                {selectedProduct.description || 'High quality product designed for daily convenience.'}
-              </p>
-
-              {selectedProduct.sizes && selectedProduct.sizes.length > 0 && (
-                <div style={{ marginBottom: '1rem' }}>
-                  <label className="form-label" style={{ display: 'block', marginBottom: '0.4rem' }}>{t.selectSize}</label>
-                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                    {selectedProduct.sizes.map(size => (
-                      <button key={size} onClick={() => setSelectedSize(size)} style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', border: selectedSize === size ? '2px solid #FD7100' : '1px solid rgba(255,247,238,0.3)', background: selectedSize === size ? '#FD7100' : '#242323', color: '#FFF7EE', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer' }}>
-                        {size}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {selectedProduct.colors && selectedProduct.colors.length > 0 && (
-                <div style={{ marginBottom: '1.2rem' }}>
-                  <label className="form-label" style={{ display: 'block', marginBottom: '0.4rem' }}>{t.selectColor}</label>
-                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                    {selectedProduct.colors.map(color => (
-                      <button key={color} onClick={() => setSelectedColor(color)} style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', border: selectedColor === color ? '2px solid #FD7100' : '1px solid rgba(255,247,238,0.3)', background: selectedColor === color ? '#FD7100' : '#242323', color: '#FFF7EE', fontWeight: '700', fontSize: '0.85rem', cursor: 'pointer' }}>
-                        {color}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <button disabled={selectedProduct.stock <= 0} onClick={addToCartFromDetails} className="btn-primary" style={{ background: selectedProduct.stock > 0 ? '#FD7100' : '#555', width: '100%', marginTop: '0.5rem', cursor: selectedProduct.stock > 0 ? 'pointer' : 'not-allowed' }}>
-                {selectedProduct.stock > 0 ? t.addToCart : t.outOfStock}
-              </button>
-            </div>
+          {/* Breadcrumb path like reference */}
+          <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '1rem', color: '#FFF7EE' }}>
+            Home / {selectedProduct.category || 'Kitchen'} / {selectedProduct.name}
           </div>
 
-          {similarProducts.length > 0 && (
-            <div style={{ marginTop: '2rem' }}>
-              <h3 style={{ fontSize: '1.1rem', color: '#FFF7EE', marginBottom: '1rem', fontWeight: '700' }}>{t.similarOptions} {selectedProduct.category}</h3>
-              <div className="grid-2col">
-                {similarProducts.map(simProd => (
-                  <div key={simProd.id || simProd._id} onClick={() => openProductDetails(simProd)} className="store-card">
-                    <div>
-                      <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.5rem', background: '#242323' }}>
-                        <img src={simProd.image || 'https://via.placeholder.com/200'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </div>
-                      <h4 className="product-title">{simProd.name}</h4>
-                      <p style={{ margin: '0 0 0.6rem 0', fontSize: '0.9rem', fontWeight: '700', color: '#FD7100' }}>{Number(simProd.price).toFixed(2)} JD</p>
-                    </div>
-                    <button onClick={(e) => { e.stopPropagation(); openProductDetails(simProd); }} className="btn-primary" style={{ width: '100%', padding: '0.4rem', fontSize: '0.75rem' }}>
-                      {t.viewDetails}
-                    </button>
+          <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '14px', border: '1px solid rgba(255,247,238,0.2)', marginBottom: '2rem' }}>
+            
+            {/* Main Product Image Display */}
+            <div style={{ width: '100%', aspectRatio: '4 / 3', overflow: 'hidden', borderRadius: '10px', background: '#242323', marginBottom: '1rem', border: '1px solid rgba(255,247,238,0.2)' }}>
+              <img src={activeImage || selectedProduct.image || 'https://via.placeholder.com/400'} alt={selectedProduct.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            </div>
+            
+            {/* Thumbnails Gallery Slider matching reference */}
+            {selectedProduct.images && selectedProduct.images.length > 0 && (
+              <div style={{ display: 'flex', gap: '0.6rem', overflowX: 'auto', paddingBottom: '0.6rem', marginBottom: '1.5rem' }}>
+                {[selectedProduct.image, ...selectedProduct.images].filter(Boolean).map((imgUrl, idx) => (
+                  <div key={idx} style={{ width: '65px', height: '65px', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '8px', flexShrink: 0, background: '#242323' }}>
+                    <img src={imgUrl} alt="" onClick={() => setActiveImage(imgUrl)} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer', border: activeImage === imgUrl ? '2px solid #FD7100' : '1px solid rgba(255,247,238,0.2)' }} />
                   </div>
                 ))}
               </div>
+            )}
+
+            {/* Product Title & Category */}
+            <div style={{ marginBottom: '1rem' }}>
+              <span style={{ fontSize: '0.8rem', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '0.3rem', color: '#FD7100' }}>
+                {selectedProduct.category || 'Cast Aluminum'}
+              </span>
+              <h1 style={{ margin: 0, fontSize: '1.6rem', color: '#FFF7EE', fontWeight: '800', lineHeight: '1.3' }}>
+                {selectedProduct.name}
+              </h1>
             </div>
-          )}
+
+            {/* VARIANT BOX EXACTLY AS IN REFERENCE */}
+            <div style={{ background: '#242323', border: '1px solid rgba(255,247,238,0.2)', borderRadius: '10px', padding: '1rem', marginBottom: '1.2rem' }}>
+              <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', opacity: 0.6, letterSpacing: '0.5px', marginBottom: '0.6rem', fontWeight: 'bold' }}>CHOOSE VARIANTS</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#FFF7EE' }}>{t.selectColor}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: selectedProduct.color || '#ef4444', border: '2px solid #FFF7EE', boxShadow: '0 0 5px rgba(0,0,0,0.5)' }}></div>
+                <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#FFF7EE' }}>{selectedProduct.colorName || 'Red'}</span>
+              </div>
+            </div>
+
+            {/* SKU and ISBN */}
+            <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+              <span>SKU: {selectedProduct.sku || 'HLO-52398'}</span>
+              <span>ISBN: {selectedProduct.isbn || ''}</span>
+            </div>
+
+            {/* Price */}
+            <div style={{ fontSize: '1.8rem', fontWeight: '900', color: '#FFF7EE', marginBottom: '1.2rem' }}>
+              {Number(selectedProduct.price).toFixed(3)} JD
+            </div>
+
+            {/* Quantity Selector & Add To Cart Button Row */}
+            <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', border: '1px solid rgba(255,247,238,0.3)', borderRadius: '8px', background: '#242323' }}>
+                <button onClick={() => setQuantity(Math.max(1, quantity - 1))} style={{ background: 'transparent', color: '#FFF7EE', border: 'none', padding: '0.6rem 1rem', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>-</button>
+                <span style={{ padding: '0 0.8rem', fontSize: '1rem', fontWeight: 'bold', color: '#FFF7EE' }}>{quantity}</span>
+                <button onClick={() => setQuantity(quantity + 1)} style={{ background: 'transparent', color: '#FFF7EE', border: 'none', padding: '0.6rem 1rem', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>+</button>
+              </div>
+
+              <button disabled={selectedProduct.stock <= 0} onClick={addToCartFromDetails} className="btn-primary" style={{ flex: 1, background: selectedProduct.stock > 0 ? '#000' : '#555', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', padding: '0.8rem', borderRadius: '8px', fontWeight: 'bold', cursor: selectedProduct.stock > 0 ? 'pointer' : 'not-allowed', fontSize: '0.95rem' }}>
+                {selectedProduct.stock > 0 ? t.addToCart : t.outOfStock}
+              </button>
+            </div>
+
+            {/* Buy It Now Button */}
+            <button onClick={buyItNowAction} style={{ width: '100%', background: 'transparent', color: '#FFF7EE', border: '1px solid #FFF7EE', padding: '0.8rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', marginBottom: '1.5rem', transition: 'all 0.2s' }}>
+              {t.buyItNow}
+            </button>
+
+            {/* Detailed Description & Features matching the image text precisely */}
+            <div style={{ borderTop: '1px solid rgba(255,247,238,0.15)', paddingTop: '1.2rem', color: '#FFF7EE', fontSize: '0.9rem', lineHeight: '1.6' }}>
+              <p style={{ margin: '0 0 1rem 0', opacity: 0.9 }}>
+                The <strong>Royal Cast Aluminum Casserole</strong> is designed to provide healthy, safe, and high-performance cooking. It combines durability and quality, making it ideal for everyday kitchen use.
+              </p>
+
+              <h4 style={{ margin: '0 0 0.6rem 0', fontSize: '1rem', color: '#FD7100', fontWeight: '700' }}>Features:</h4>
+              <ol style={{ paddingLeft: '1.2rem', margin: 0, display: 'flex', flexDirection: 'column', gap: '0.6rem', opacity: 0.85 }}>
+                <li>A healthy cooking pot, free from <strong>lead, silver</strong>, and harmful chemicals such as <strong>PFOA</strong> commonly used in cookware manufacturing.</li>
+                <li>Dishwasher and oven safe, with heat resistance up to <strong>230°C</strong>.</li>
+                <li>Made from high-quality cast aluminum with a <strong>non-stick, durable surface</strong>.</li>
+                <li>Suitable for all types of cooktops: <strong>gas, electric, and ceramic</strong>.</li>
+                <li>The inner lid features a <strong>steam condensation system</strong> that enhances cooking efficiency and preserves flavor.</li>
+              </ol>
+            </div>
+
+          </div>
+
+          {/* RECOMMENDED / SIMILAR PRODUCTS SECTION MATCHING REFERENCE */}
+          <div style={{ marginTop: '2.5rem' }}>
+            <h3 style={{ fontSize: '1.1rem', color: '#FFF7EE', marginBottom: '1rem', fontWeight: '700', borderBottom: '1px solid rgba(255,247,238,0.15)', paddingBottom: '0.5rem' }}>
+              {t.similarOptions}
+            </h3>
+            <div className="grid-2col">
+              {similarProducts.map(simProd => (
+                <div key={simProd.id || simProd._id} onClick={() => openProductDetails(simProd)} className="store-card">
+                  <div>
+                    <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.5rem', background: '#242323' }}>
+                      <img src={simProd.image || 'https://via.placeholder.com/200'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                    <h4 className="product-title">{simProd.name}</h4>
+                    <p style={{ margin: '0 0 0.6rem 0', fontSize: '0.9rem', fontWeight: '700', color: '#FD7100' }}>{Number(simProd.price).toFixed(3)} JD</p>
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); openProductDetails(simProd); }} className="btn-primary" style={{ width: '100%', padding: '0.4rem', fontSize: '0.75rem' }}>
+                    {t.viewDetails}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       ) : submittedSearchQuery ? (
         /* VIEW: SEARCH RESULTS */
@@ -652,7 +695,7 @@ export default function StoreApp() {
                     </div>
                     <span className="badge-category">{product.category || 'General'}</span>
                     <h4 className="product-title">{product.name}</h4>
-                    <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(2)} JD</p>
+                    <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(3)} JD</p>
                   </div>
                   <button onClick={(e) => { e.stopPropagation(); openProductDetails(product); }} className="btn-primary" style={{ width: '100%', padding: '0.5rem', fontSize: '0.8rem' }}>{t.viewDetails}</button>
                 </div>
@@ -677,7 +720,7 @@ export default function StoreApp() {
                     </div>
                     <span className="badge-category">{product.category || 'General'}</span>
                     <h4 className="product-title">{product.name}</h4>
-                    <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(2)} JD</p>
+                    <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(3)} JD</p>
                   </div>
                   <button onClick={(e) => { e.stopPropagation(); openProductDetails(product); }} className="btn-primary" style={{ width: '100%', padding: '0.5rem', fontSize: '0.8rem' }}>{t.viewDetails}</button>
                 </div>
@@ -729,7 +772,7 @@ export default function StoreApp() {
                     </div>
                     <span className="badge-category">{product.category || 'General'}</span>
                     <h4 className="product-title">{product.name}</h4>
-                    <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(2)} JD</p>
+                    <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(3)} JD</p>
                   </div>
                   <button onClick={(e) => { e.stopPropagation(); openProductDetails(product); }} className="btn-primary" style={{ width: '100%', padding: '0.5rem', fontSize: '0.8rem' }}>{t.viewDetails}</button>
                 </div>
@@ -755,7 +798,7 @@ export default function StoreApp() {
                           <img src={product.image || 'https://via.placeholder.com/200'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
                         <h4 className="product-title">{product.name}</h4>
-                        <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(2)} JD</p>
+                        <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(3)} JD</p>
                       </div>
                       <button onClick={(e) => { e.stopPropagation(); openProductDetails(product); }} className="btn-primary" style={{ marginTop: '0.6rem', width: '100%', padding: '0.4rem', fontSize: '0.75rem' }}>{t.viewDetails}</button>
                     </div>
@@ -811,7 +854,7 @@ export default function StoreApp() {
                     </div>
                     <span className="badge-category">{product.category || 'General'}</span>
                     <h4 className="product-title">{product.name}</h4>
-                    <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(2)} JD</p>
+                    <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(3)} JD</p>
                   </div>
                   <button onClick={(e) => { e.stopPropagation(); openProductDetails(product); }} className="btn-primary" style={{ width: '100%', padding: '0.5rem', fontSize: '0.8rem' }}>{t.viewDetails}</button>
                 </div>
@@ -821,7 +864,7 @@ export default function StoreApp() {
         </>
       )}
 
-      {/* --- UPDATED FOOTER (ORANGE BACKGROUND, LARGER LOGO ON THE RIGHT, PNG ICONS READY) --- */}
+      {/* --- FOOTER --- */}
       <footer style={{
         background: '#FD7100',
         color: '#1c1b1b',
@@ -832,7 +875,6 @@ export default function StoreApp() {
       }}>
         <div style={{ maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
           
-          {/* Logo & Store Name Side-by-Side (Logo Bigger and to the Right in RTL/LTR) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'center' }}>
             <img 
               src="/logo.jpg" 
@@ -845,12 +887,10 @@ export default function StoreApp() {
             </h3>
           </div>
 
-          {/* Slogan */}
           <p style={{ margin: 0, fontSize: '1.05rem', color: '#1c1b1b', opacity: 0.95, fontWeight: '700' }}>
             {t.footerSlogan}
           </p>
 
-          {/* Social Media PNG Icons Container */}
           <div style={{ display: 'flex', gap: '1.2rem', margin: '0.5rem 0', justifyContent: 'center', alignItems: 'center' }}>
             <a 
               href="https://www.instagram.com/karamstores.jo?srtk=MnFvODFwdDhsanh0" 
@@ -858,7 +898,6 @@ export default function StoreApp() {
               rel="noopener noreferrer"
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1c1b1b', padding: '0.6rem 1.2rem', borderRadius: '10px', textDecoration: 'none' }}
             >
-              {/* ضع صورة instagram.png في مجلد public */}
               <img src="/instagram.png" alt="Instagram" style={{ width: '24px', height: '24px', objectFit: 'contain' }} onError={(e) => { e.target.style.display = 'none'; }} />
               <span style={{ color: '#FFF7EE', fontWeight: 'bold', marginLeft: '6px', marginRight: '6px', fontSize: '0.85rem' }}>Instagram</span>
             </a>
@@ -869,16 +908,13 @@ export default function StoreApp() {
               rel="noopener noreferrer"
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1c1b1b', padding: '0.6rem 1.2rem', borderRadius: '10px', textDecoration: 'none' }}
             >
-              {/* ضع صورة facebook.png في مجلد public */}
               <img src="/facebook.png" alt="Facebook" style={{ width: '24px', height: '24px', objectFit: 'contain' }} onError={(e) => { e.target.style.display = 'none'; }} />
               <span style={{ color: '#FFF7EE', fontWeight: 'bold', marginLeft: '6px', marginRight: '6px', fontSize: '0.85rem' }}>Facebook</span>
             </a>
           </div>
 
-          {/* Divider Line */}
           <div style={{ width: '100%', height: '1px', background: 'rgba(28,27,27,0.2)', margin: '0.8rem 0' }}></div>
 
-          {/* Copyright */}
           <div style={{ fontSize: '0.85rem', color: '#1c1b1b', fontWeight: '600', opacity: 0.85 }}>
             Copyright &copy; 2026 {t.storeName}. All rights reserved.
           </div>
@@ -930,7 +966,7 @@ export default function StoreApp() {
                         <p style={{ margin: '0 0 0.2rem 0', fontSize: '0.7rem', color: '#FFF7EE', opacity: 0.7 }}>
                           {item.selectedSize ? `Size: ${item.selectedSize} ` : ''} {item.selectedColor ? `Color: ${item.selectedColor}` : ''}
                         </p>
-                        <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#FD7100' }}>{Number(item.price).toFixed(2)} JD</span>
+                        <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#FD7100' }}>{Number(item.price).toFixed(3)} JD</span>
                       </div>
                     </div>
 
@@ -952,16 +988,16 @@ export default function StoreApp() {
                 <div style={{ background: '#242323', border: '1px solid rgba(255,247,238,0.2)', borderRadius: '8px', padding: '0.8rem', marginBottom: '0.8rem', fontSize: '0.85rem', color: '#FFF7EE' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
                     <span style={{ opacity: 0.8 }}>{t.subtotal}</span>
-                    <span>{cartSubtotal.toFixed(2)} JD</span>
+                    <span>{cartSubtotal.toFixed(3)} JD</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
                     <span style={{ opacity: 0.8 }}>{t.deliveryFeeLabel}</span>
-                    <span>{deliveryFee.toFixed(2)} JD</span>
+                    <span>{deliveryFee.toFixed(3)} JD</span>
                   </div>
                   {discountValue > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', color: '#4ade80' }}>
                       <span>Discount ({appliedPromoCode}):</span>
-                      <span>-{discountValue.toFixed(2)} JD</span>
+                      <span>-{discountValue.toFixed(3)} JD</span>
                     </div>
                   )}
 
@@ -972,7 +1008,7 @@ export default function StoreApp() {
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '1rem', color: '#FFF7EE', borderTop: '1px solid rgba(255,247,238,0.2)', paddingTop: '0.5rem', marginTop: '0.3rem' }}>
                     <span>{t.totalAmount}</span>
-                    <span style={{ color: '#FD7100' }}>{grandTotal.toFixed(2)} JD</span>
+                    <span style={{ color: '#FD7100' }}>{grandTotal.toFixed(3)} JD</span>
                   </div>
                 </div>
 
@@ -1083,7 +1119,7 @@ export default function StoreApp() {
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.6rem' }}>
                         <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#FFF7EE' }}>
-                          {t.totalDue} <span style={{ color: '#FD7100' }}>{Number(ord.grandTotal || ord.total || 0).toFixed(2)} JD</span>
+                          {t.totalDue} <span style={{ color: '#FD7100' }}>{Number(ord.grandTotal || ord.total || 0).toFixed(3)} JD</span>
                         </span>
                         <button onClick={() => setExpandedReceiptId(isExpanded ? null : oId)} className="btn-primary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}>
                           {isExpanded ? t.hideReceipt : t.viewReceipt}
@@ -1107,7 +1143,7 @@ export default function StoreApp() {
                             {ord.items && ord.items.map((it, i) => (
                               <div key={i} style={{ fontSize: '0.75rem', color: '#FFF7EE', opacity: 0.85, display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
                                 <span>{it.name} (×{it.quantity})</span>
-                                <span style={{ fontWeight: 'bold', color: '#FD7100' }}>{(it.price * it.quantity).toFixed(2)} JD</span>
+                                <span style={{ fontWeight: 'bold', color: '#FD7100' }}>{(it.price * it.quantity).toFixed(3)} JD</span>
                               </div>
                             ))}
                           </div>
@@ -1115,21 +1151,21 @@ export default function StoreApp() {
                           <div style={{ borderTop: '1px solid rgba(255,247,238,0.2)', paddingTop: '0.5rem', fontSize: '0.8rem', color: '#FFF7EE' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
                               <span style={{ opacity: 0.8 }}>{t.subtotal}</span>
-                              <span>{Number(ord.total || 0).toFixed(2)} JD</span>
+                              <span>{Number(ord.total || 0).toFixed(3)} JD</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
                               <span style={{ opacity: 0.8 }}>{t.deliveryFee}</span>
-                              <span>{Number(ord.deliveryFee || 2.00).toFixed(2)} JD</span>
+                              <span>{Number(ord.deliveryFee || 2.00).toFixed(3)} JD</span>
                             </div>
                             {ord.discountAmount > 0 && (
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem', color: '#4ade80' }}>
                                 <span>Discount:</span>
-                                <span>-{Number(ord.discountAmount).toFixed(2)} JD</span>
+                                <span>-{Number(ord.discountAmount).toFixed(3)} JD</span>
                               </div>
                             )}
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '0.9rem', marginTop: '0.3rem', borderTop: '1px solid rgba(255,247,238,0.2)', paddingTop: '0.3rem' }}>
                               <span>{t.totalToPay}</span>
-                              <span style={{ color: '#FD7100' }}>{Number(ord.grandTotal || (ord.total + (ord.deliveryFee || 2.00))).toFixed(2)} JD</span>
+                              <span style={{ color: '#FD7100' }}>{Number(ord.grandTotal || (ord.total + (ord.deliveryFee || 2.00))).toFixed(3)} JD</span>
                             </div>
                           </div>
                         </div>
