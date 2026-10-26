@@ -16,8 +16,6 @@ app.use(express.json({ limit: '10mb' }));
 
 // --- MONGODB CONNECTION ---
 
-// Replace with your MongoDB connection string (or use environment variables process.env.MONGO_URI)
-
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://amalserdaneh43_db_user:amalamal22@karam.vuy0bv0.mongodb.net/karam_stores?retryWrites=true&w=majority';
 
 mongoose.connect(MONGO_URI)
@@ -78,7 +76,7 @@ const Category = mongoose.model('Category', categorySchema);
 
 const orderSchema = new mongoose.Schema({
 
-  id: { type: Number, required: true, unique: true },
+  id: { type: mongoose.Schema.Types.Mixed, required: true, unique: true },
 
   items: Array,
 
@@ -131,8 +129,6 @@ const settingsSchema = new mongoose.Schema({
 const Settings = mongoose.model('Settings', settingsSchema);
 
 
-
-// Helper to ensure default settings exist in DB
 
 async function getSettingsDoc() {
 
@@ -233,8 +229,6 @@ app.get('/api/categories', async (req, res) => {
   try {
 
     const cats = await Category.find({});
-
-    // Fallback to default if empty
 
     if (cats.length === 0) {
 
@@ -397,8 +391,6 @@ app.post('/api/products', async (req, res) => {
 });
 
 
-
-// BULK PRODUCTS IMPORT ENDPOINT
 
 app.post('/api/products/import', async (req, res) => {
 
@@ -662,8 +654,6 @@ app.post('/api/orders', async (req, res) => {
 
 
 
-// BULK ORDERS IMPORT ENDPOINT
-
 app.post('/api/orders/import', async (req, res) => {
 
   try {
@@ -776,7 +766,15 @@ app.put('/api/orders/:id', async (req, res) => {
 
     
 
-    let order = await Order.findOne({ $or: [{ id: Number(id) }, { _id: id }] });
+    const numericId = !isNaN(id) ? Number(id) : null;
+
+    const queryConditions = [{ id: id }, { _id: id }];
+
+    if (numericId !== null) queryConditions.push({ id: numericId });
+
+
+
+    let order = await Order.findOne({ $or: queryConditions });
 
     if (order) {
 
@@ -836,7 +834,15 @@ app.patch('/api/orders/:id', async (req, res) => {
 
     
 
-    let order = await Order.findOne({ $or: [{ id: Number(id) }, { _id: id }] });
+    const numericId = !isNaN(id) ? Number(id) : null;
+
+    const queryConditions = [{ id: id }, { _id: id }];
+
+    if (numericId !== null) queryConditions.push({ id: numericId });
+
+
+
+    let order = await Order.findOne({ $or: queryConditions });
 
     if (order) {
 
@@ -892,11 +898,43 @@ app.delete('/api/orders/:id', async (req, res) => {
 
     const { id } = req.params;
 
-    await Order.deleteOne({ $or: [{ id: Number(id) }, { _id: id }] });
+    const numericId = !isNaN(id) ? Number(id) : null;
 
-    res.json({ success: true, message: 'Order deleted successfully' });
+    
+
+    const queryConditions = [
+
+      { id: id },
+
+      { _id: id }
+
+    ];
+
+    if (numericId !== null) {
+
+      queryConditions.push({ id: numericId });
+
+    }
+
+
+
+    const deletedOrder = await Order.findOneAndDelete({ $or: queryConditions });
+
+    
+
+    if (!deletedOrder) {
+
+      return res.status(404).json({ error: 'Order not found in database' });
+
+    }
+
+
+
+    res.json({ success: true, message: 'Order deleted successfully', id });
 
   } catch (err) {
+
+    console.error('Error deleting order:', err);
 
     res.status(500).json({ error: 'Failed to delete order' });
 
