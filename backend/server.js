@@ -1,32 +1,21 @@
 const express = require('express');
-
 const cors = require('cors');
-
 const mongoose = require('mongoose');
-
-
+// 1. Require and configure dotenv at the very top
+require('dotenv').config();
 
 const app = express();
-
 app.use(cors());
-
 app.use(express.json({ limit: '10mb' }));
 
-
-
-// --- MONGODB CONNECTION ---
-
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://amalserdaneh43_db_user:amalamal22@karam.vuy0bv0.mongodb.net/karam_stores?retryWrites=true&w=majority';
+// 2. Use process.env.MONGO_URI with a fallback if needed
+const MONGO_URI = process.env.MONGO_URI;
 
 mongoose.connect(MONGO_URI)
-
   .then(() => console.log('Connected to MongoDB successfully'))
-
   .catch(err => console.error('MongoDB connection error:', err));
 
-
-
-// --- SCHEMAS & MODELS ---
+// ... (the rest of your schemas, models, and endpoints remain unchanged)
 
 const productSchema = new mongoose.Schema({
 
