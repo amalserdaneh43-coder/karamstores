@@ -14,7 +14,7 @@ export default function AdminDashboard() {
 
   
 
-  // Filtering & Search States
+  // حالة التصفية والبحث
 
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
 
@@ -26,13 +26,13 @@ export default function AdminDashboard() {
 
 
 
-  // Transaction Detail Modal State
+  // حالة نافذة تفاصيل المعاملة المنبثقة
 
   const [selectedOrder, setSelectedOrder] = useState(null);
 
 
 
-  // Edit Order State
+  // حالة تعديل الطلب
 
   const [editingOrder, setEditingOrder] = useState(null);
 
@@ -46,7 +46,7 @@ export default function AdminDashboard() {
 
 
 
-  // Product Form State
+  // حالة نموذج المنتج
 
   const [isAddingProduct, setIsAddingProduct] = useState(false);
 
@@ -58,7 +58,7 @@ export default function AdminDashboard() {
 
   const [formPrice, setFormPrice] = useState('');
 
-  const [formCategory, setFormCategory] = useState('Kitchen');
+  const [formCategory, setFormCategory] = useState('مطبخ');
 
   const [formImage, setFormImage] = useState('');
 
@@ -72,11 +72,11 @@ export default function AdminDashboard() {
 
   const [formColor, setFormColor] = useState('#ef4444');
 
-  const [formColorName, setFormColorName] = useState('Red');
+  const [formColorName, setFormColorName] = useState('أحمر');
 
 
 
-  // Settings Form State
+  // حالة نموذج الإعدادات
 
   const [ammanFee, setAmmanFee] = useState(2.00);
 
@@ -96,7 +96,7 @@ export default function AdminDashboard() {
 
       .then(data => setProducts(data))
 
-      .catch(err => console.error('Error fetching products:', err));
+      .catch(err => console.error('خطأ في جلب المنتجات:', err));
 
 
 
@@ -106,7 +106,7 @@ export default function AdminDashboard() {
 
       .then(data => setOrders(data))
 
-      .catch(err => console.error('Error fetching orders:', err));
+      .catch(err => console.error('خطأ في جلب الطلبات:', err));
 
 
 
@@ -124,7 +124,7 @@ export default function AdminDashboard() {
 
       })
 
-      .catch(err => console.error('Error fetching settings:', err));
+      .catch(err => console.error('خطأ في جلب الإعدادات:', err));
 
   };
 
@@ -138,7 +138,7 @@ export default function AdminDashboard() {
 
 
 
-  // --- PRINTING RECEIPT & BARCODES ---
+  // --- طباعة الإيصال والبارات ---
 
   const handlePrintReceipt = (ord) => {
 
@@ -150,7 +150,7 @@ export default function AdminDashboard() {
 
         <head>
 
-          <title>Receipt #${ord.id || ord._id}</title>
+          <title>إيصال رقم #${ord.id || ord._id}</title>
 
           <style>
 
@@ -190,11 +190,11 @@ export default function AdminDashboard() {
 
             <p><strong>التاريخ:</strong> ${new Date(ord.createdAt || Date.now()).toLocaleString()}</p>
 
-            <p><strong>اسم العميل:</strong> ${ord.customer?.arabicName || ord.arabicName || 'N/A'}</p>
+            <p><strong>اسم العميل:</strong> ${ord.customer?.arabicName || ord.arabicName || 'غير متوفر'}</p>
 
-            <p><strong>رقم الهاتف:</strong> ${ord.customer?.phone1 || ord.phone || 'N/A'}</p>
+            <p><strong>رقم الهاتف:</strong> ${ord.customer?.phone1 || ord.phone || 'غير متوفر'}</p>
 
-            <p><strong>العنوان:</strong> ${ord.customer?.manualAddress || ord.address || 'N/A'}</p>
+            <p><strong>العنوان:</strong> ${ord.customer?.manualAddress || ord.address || 'غير متوفر'}</p>
 
           </div>
 
@@ -226,9 +226,9 @@ export default function AdminDashboard() {
 
                   <td>${i.quantity}</td>
 
-                  <td>${Number(i.price).toFixed(2)} JD</td>
+                  <td>${Number(i.price).toFixed(2)} دينار</td>
 
-                  <td>${(i.price * i.quantity).toFixed(2)} JD</td>
+                  <td>${(i.price * i.quantity).toFixed(2)} دينار</td>
 
                 </tr>
 
@@ -240,13 +240,13 @@ export default function AdminDashboard() {
 
           <div class="totals">
 
-            <p>المجموع الفرعي: <strong>${Number(ord.total || 0).toFixed(2)} JD</strong></p>
+            <p>المجموع الفرعي: <strong>${Number(ord.total || 0).toFixed(2)} دينار</strong></p>
 
-            <p>رسوم التوصيل: <strong>${Number(ord.deliveryFee || 2.00).toFixed(2)} JD</strong></p>
+            <p>رسوم التوصيل: <strong>${Number(ord.deliveryFee || 2.00).toFixed(2)} دينار</strong></p>
 
-            ${ord.discountAmount > 0 ? `<p>الخصم: <strong>-${Number(ord.discountAmount).toFixed(2)} JD</strong></p>` : ''}
+            ${ord.discountAmount > 0 ? `<p>الخصم: <strong>-${Number(ord.discountAmount).toFixed(2)} دينار</strong></p>` : ''}
 
-            <p style="font-size: 16px; color: #d97706;">المجموع الإجمالي (نقداً): <strong>${Number(ord.grandTotal || ord.total || 0).toFixed(2)} JD</strong></p>
+            <p style="font-size: 16px; color: #d97706;">المجموع الإجمالي (نقداً): <strong>${Number(ord.grandTotal || ord.total || 0).toFixed(2)} دينار</strong></p>
 
           </div>
 
@@ -254,7 +254,7 @@ export default function AdminDashboard() {
 
             *ORD-${ord.id || ord._id}*
 
-            <div style="font-size: 11px; margin-top: 5px; letter-spacing: normal;">Barcode ID: ${ord.id || ord._id}</div>
+            <div style="font-size: 11px; margin-top: 5px; letter-spacing: normal;">معرف الباركود: ${ord.id || ord._id}</div>
 
           </div>
 
@@ -278,13 +278,13 @@ export default function AdminDashboard() {
 
 
 
-  // --- DOWNLOAD CSV TEMPLATE WITH ID & NEW FIELDS ---
+  // --- تنزيل قالب ملف CSV مع المعرف والحقول الجديدة ---
 
   const handleDownloadCsvTemplate = () => {
 
     const templateHeaders = ['id', 'name', 'price', 'category', 'stock', 'featured', 'image', 'images', 'description', 'color', 'colorName'];
 
-    const sampleRow = ['6578465137110', 'طنجرة', '25.00', 'Kitchen', '10', 'TRUE', 'https://example.com/image.jpg', '', 'High quality pot', '#ef4444', 'Red'];
+    const sampleRow = ['6578465137110', 'طنجرة', '25.00', 'Kitchen', '10', 'TRUE', 'https://example.com/image.jpg', '', 'قدر عالي الجودة', '#ef4444', 'أحمر'];
 
     const csvContent = [templateHeaders.join(','), sampleRow.join(',')].join('\n');
 
@@ -310,7 +310,7 @@ export default function AdminDashboard() {
 
 
 
-  // --- CSV BACKUP & ROBUST EXPORT ---
+  // --- نسخة احتياطية بصيغة CSV وتصدير دقيق ---
 
   const handleExportInventory = () => {
 
@@ -344,7 +344,7 @@ export default function AdminDashboard() {
 
         escapeCell(p.price || 0),
 
-        escapeCell(p.category || 'Kitchen'),
+        escapeCell(p.category || 'مطبخ'),
 
         escapeCell(p.stock || 0),
 
@@ -358,7 +358,7 @@ export default function AdminDashboard() {
 
         escapeCell(p.color || '#ef4444'),
 
-        escapeCell(p.colorName || 'Red')
+        escapeCell(p.colorName || 'أحمر')
 
       ];
 
@@ -388,7 +388,7 @@ export default function AdminDashboard() {
 
 
 
-  // --- SANITIZER HELPERS ---
+  // --- دوال التنقية والمساعدة ---
 
   const cleanId = (rawId) => {
 
@@ -448,7 +448,7 @@ export default function AdminDashboard() {
 
       if (lines.length < 2) {
 
-        alert('Invalid CSV file format or empty file.');
+        alert('تنسيق ملف CSV غير صالح أو الملف فارغ.');
 
         return;
 
@@ -504,11 +504,11 @@ export default function AdminDashboard() {
 
         const rawId = cleanId(row[0]);
 
-        const name = cleanArabicText(row[1]) || 'Product';
+        const name = cleanArabicText(row[1]) || 'منتج';
 
         const price = parseFloat(row[2]) || 0.0;
 
-        const category = cleanArabicText(row[3]) || 'Kitchen';
+        const category = cleanArabicText(row[3]) || 'مطبخ';
 
         const stock = parseInt(row[4]) || 10;
 
@@ -522,7 +522,7 @@ export default function AdminDashboard() {
 
         const color = row[9] || '#ef4444';
 
-        const colorName = cleanArabicText(row[10]) || 'Red';
+        const colorName = cleanArabicText(row[10]) || 'أحمر';
 
 
 
@@ -564,7 +564,7 @@ export default function AdminDashboard() {
 
       if (parsedProducts.length === 0) {
 
-        alert('Could not parse any products. Please check the CSV structure.');
+        alert('تعذر قراءة أي منتجات. يرجى التحقق من هيكل ملف CSV.');
 
         return;
 
@@ -572,7 +572,7 @@ export default function AdminDashboard() {
 
 
 
-      if (window.confirm(`Successfully parsed ${parsedProducts.length} valid products from CSV. Upload/Update them now?`)) {
+      if (window.confirm(`تم تحليل ${parsedProducts.length} منتج صالح بنجاح من ملف CSV. هل تريد رفع/تحديث المنتجات الآن؟`)) {
 
         fetch('https://karamstores.onrender.com/api/products/import', {
 
@@ -588,7 +588,7 @@ export default function AdminDashboard() {
 
           .then(data => {
 
-            alert(data.message || 'Inventory successfully imported & updated!');
+            alert(data.message || 'تم استيراد وتحديث المخزون بنجاح!');
 
             fetchData();
 
@@ -596,9 +596,9 @@ export default function AdminDashboard() {
 
           .catch(err => {
 
-            console.error('Import error:', err);
+            console.error('خطأ في الاستيراد:', err);
 
-            alert('Error during bulk import.');
+            alert('حدث خطأ أثناء الاستيراد الجماعي.');
 
           });
 
@@ -610,7 +610,7 @@ export default function AdminDashboard() {
 
 
 
-  // --- PRODUCT MANAGEMENT ---
+  // --- إدارة المنتجات ---
 
   const handleSaveProduct = (e) => {
 
@@ -668,7 +668,7 @@ export default function AdminDashboard() {
 
       .then(res => {
 
-        if (!res.ok) throw new Error('Failed to save product');
+        if (!res.ok) throw new Error('فشل في حفظ المنتج');
 
         return res.json();
 
@@ -680,15 +680,15 @@ export default function AdminDashboard() {
 
         fetchData();
 
-        alert(editingId ? 'Product updated successfully!' : 'Product added successfully!');
+        alert(editingId ? 'تم تحديث المنتج بنجاح!' : 'تمت إضافة المنتج بنجاح!');
 
       })
 
       .catch(err => {
 
-        console.error('Error saving product:', err);
+        console.error('خطأ في حفظ المنتج:', err);
 
-        alert('Error saving product. Please check console.');
+        alert('خطأ في حفظ المنتج. يرجى التحقق من وحدة التحكم (Console).');
 
       });
 
@@ -708,7 +708,7 @@ export default function AdminDashboard() {
 
     setFormPrice(prod.price !== undefined ? prod.price : '');
 
-    setFormCategory(prod.category || 'Kitchen');
+    setFormCategory(prod.category || 'مطبخ');
 
     setFormImage(prod.image || '');
 
@@ -722,7 +722,7 @@ export default function AdminDashboard() {
 
     setFormColor(prod.color || '#ef4444');
 
-    setFormColorName(prod.colorName || 'Red');
+    setFormColorName(prod.colorName || 'أحمر');
 
     setIsAddingProduct(true);
 
@@ -742,7 +742,7 @@ export default function AdminDashboard() {
 
     setFormPrice('');
 
-    setFormCategory('Kitchen');
+    setFormCategory('مطبخ');
 
     setFormImage('');
 
@@ -756,7 +756,7 @@ export default function AdminDashboard() {
 
     setFormColor('#ef4444');
 
-    setFormColorName('Red');
+    setFormColorName('أحمر');
 
     setIsAddingProduct(false);
 
@@ -766,19 +766,19 @@ export default function AdminDashboard() {
 
   const handleDeleteProduct = (id) => {
 
-    if (!window.confirm('Are you sure you want to delete this product?')) return;
+    if (!window.confirm('هل أنت متأكد أنك تريد حذف هذا المنتج؟')) return;
 
     fetch(`https://karamstores.onrender.com/api/products/${id}`, { method: 'DELETE' })
 
       .then(() => fetchData())
 
-      .catch(err => console.error('Error deleting product:', err));
+      .catch(err => console.error('خطأ في حذف المنتج:', err));
 
   };
 
 
 
-  // --- ORDER STATUS, EDITING & DELETING ---
+  // --- حالة الطلبات، التعديل والحذف ---
 
   const handleUpdateOrderStatus = (orderId, newStatus) => {
 
@@ -796,7 +796,7 @@ export default function AdminDashboard() {
 
       .then(() => fetchData())
 
-      .catch(err => console.error('Error updating status:', err));
+      .catch(err => console.error('خطأ في تحديث الحالة:', err));
 
   };
 
@@ -804,25 +804,25 @@ export default function AdminDashboard() {
 
   const handleDeleteOrder = (orderId) => {
 
-    if (!window.confirm(`Are you sure you want to delete order #${orderId}?`)) return;
+    if (!window.confirm(`هل أنت متأكد أنك تريد حذف الطلب #${orderId}؟`)) return;
 
     fetch(`https://karamstores.onrender.com/api/orders/${orderId}`, { method: 'DELETE' })
 
       .then(res => {
 
-        if (!res.ok) throw new Error('Failed to delete order');
+        if (!res.ok) throw new Error('فشل في حذف الطلب');
 
         fetchData();
 
-        alert('Order deleted successfully!');
+        alert('تم حذف الطلب بنجاح!');
 
       })
 
       .catch(err => {
 
-        console.error('Error deleting order:', err);
+        console.error('خطأ في حذف الطلب:', err);
 
-        alert('Error deleting order.');
+        alert('خطأ في حذف الطلب.');
 
       });
 
@@ -896,17 +896,17 @@ export default function AdminDashboard() {
 
         fetchData();
 
-        alert('Order updated successfully!');
+        alert('تم تحديث الطلب بنجاح!');
 
       })
 
-      .catch(err => console.error('Error updating order:', err));
+      .catch(err => console.error('خطأ في تحديث الطلب:', err));
 
   };
 
 
 
-  // --- SETTINGS ---
+  // --- الإعدادات ---
 
   const handleUpdateSettings = (e) => {
 
@@ -936,11 +936,11 @@ export default function AdminDashboard() {
 
         setSettings(data.storeSettings || data);
 
-        alert('Store settings & regional delivery fees updated successfully!');
+        alert('تم تحديث إعدادات المتجر ورسوم التوصيل الإقليمية بنجاح!');
 
       })
 
-      .catch(err => console.error('Error updating settings:', err));
+      .catch(err => console.error('خطأ في تحديث الإعدادات:', err));
 
   };
 
@@ -982,7 +982,7 @@ export default function AdminDashboard() {
 
         setNewPromoVal('');
 
-        alert('Discount code added!');
+        alert('تمت إضافة رمز الخصم!');
 
       });
 
@@ -1024,7 +1024,7 @@ export default function AdminDashboard() {
 
 
 
-  // --- COMPUTED DATA & ANALYTICS ---
+  // --- البيانات المحسوبة والتحليلات ---
 
   const sortedOrders = useMemo(() => {
 
@@ -1116,19 +1116,19 @@ export default function AdminDashboard() {
 
   return (
 
-    <div style={{ padding: '2rem', background: '#1c1b1b', color: '#FFF7EE', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
+    <div dir="rtl" style={{ padding: '2rem', background: '#1c1b1b', color: '#FFF7EE', minHeight: '100vh', fontFamily: 'system-ui, sans-serif', textAlign: 'right' }}>
 
       
 
-      {/* Header & Financial Metrics */}
+      {/* رأس الصفحة والمقاييس المالية */}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,247,238,0.2)', paddingBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
 
         <div>
 
-          <h1 style={{ margin: 0, fontSize: '1.8rem', color: '#FD7100' }}>Karam Stores Admin</h1>
+          <h1 style={{ margin: 0, fontSize: '1.8rem', color: '#FD7100' }}>لوحة تحكم كرم ستورز</h1>
 
-          <p style={{ margin: '0.2rem 0 0 0', opacity: 0.7, fontSize: '0.9rem' }}>Enterprise Control Center ({products.length} Items Loaded)</p>
+          <p style={{ margin: '0.2rem 0 0 0', opacity: 0.7, fontSize: '0.9rem' }}>مركز التحكم المؤسسي ({products.length} منتج محمل)</p>
 
         </div>
 
@@ -1138,31 +1138,31 @@ export default function AdminDashboard() {
 
           <div>
 
-            <span style={{ fontSize: '0.7rem', opacity: 0.7, display: 'block' }}>Total Orders</span>
+            <span style={{ fontSize: '0.7rem', opacity: 0.7, display: 'block' }}>إجمالي الطلبات</span>
 
             <strong style={{ fontSize: '1.05rem' }}>{orders.length}</strong>
 
           </div>
 
-          <div style={{ borderLeft: '1px solid rgba(255,247,238,0.2)', paddingLeft: '1rem' }}>
+          <div style={{ borderRight: '1px solid rgba(255,247,238,0.2)', paddingRight: '1rem' }}>
 
-            <span style={{ fontSize: '0.7rem', opacity: 0.7, display: 'block' }}>Total Revenue</span>
+            <span style={{ fontSize: '0.7rem', opacity: 0.7, display: 'block' }}>إجمالي الإيرادات</span>
 
-            <strong style={{ fontSize: '1.05rem', color: '#4ade80' }}>{totalRevenue.toFixed(2)} JD</strong>
-
-          </div>
-
-          <div style={{ borderLeft: '1px solid rgba(255,247,238,0.2)', paddingLeft: '1rem' }}>
-
-            <span style={{ fontSize: '0.7rem', opacity: 0.7, display: 'block' }}>Monthly Income ({monthlyStats.currentMonthKey})</span>
-
-            <strong style={{ fontSize: '1.05rem', color: '#60a5fa' }}>{monthlyStats.monthRev.toFixed(2)} JD ({monthlyStats.monthCount} orders)</strong>
+            <strong style={{ fontSize: '1.05rem', color: '#4ade80' }}>{totalRevenue.toFixed(2)} دينار</strong>
 
           </div>
 
-          <div style={{ borderLeft: '1px solid rgba(255,247,238,0.2)', paddingLeft: '1rem' }}>
+          <div style={{ borderRight: '1px solid rgba(255,247,238,0.2)', paddingRight: '1rem' }}>
 
-            <span style={{ fontSize: '0.7rem', opacity: 0.7, display: 'block' }}>Low Stock</span>
+            <span style={{ fontSize: '0.7rem', opacity: 0.7, display: 'block' }}>دخل الشهر ({monthlyStats.currentMonthKey})</span>
+
+            <strong style={{ fontSize: '1.05rem', color: '#60a5fa' }}>{monthlyStats.monthRev.toFixed(2)} دينار ({monthlyStats.monthCount} طلب)</strong>
+
+          </div>
+
+          <div style={{ borderRight: '1px solid rgba(255,247,238,0.2)', paddingRight: '1rem' }}>
+
+            <span style={{ fontSize: '0.7rem', opacity: 0.7, display: 'block' }}>مخزون منخفض</span>
 
             <strong style={{ fontSize: '1.05rem', color: lowStockProducts.length > 0 ? '#ef4444' : '#4ade80' }}>{lowStockProducts.length}</strong>
 
@@ -1174,25 +1174,25 @@ export default function AdminDashboard() {
 
 
 
-      {/* Tabs Navigation */}
+      {/* التنقل بين علامات التبويب */}
 
       <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
 
         <button onClick={() => setActiveTab('orders')} style={{ padding: '0.7rem 1.2rem', background: activeTab === 'orders' ? '#FD7100' : '#2D2C2C', color: '#FFF7EE', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
 
-          📋 Orders ({orders.length})
+          📋 الطلبات ({orders.length})
 
         </button>
 
         <button onClick={() => setActiveTab('inventory')} style={{ padding: '0.7rem 1.2rem', background: activeTab === 'inventory' ? '#FD7100' : '#2D2C2C', color: '#FFF7EE', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
 
-          📦 Inventory Table & Templates ({products.length})
+          📦 جدول المخزون والقوالب ({products.length})
 
         </button>
 
         <button onClick={() => setActiveTab('settings')} style={{ padding: '0.7rem 1.2rem', background: activeTab === 'settings' ? '#FD7100' : '#2D2C2C', color: '#FFF7EE', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
 
-          ⚙️ Regional Delivery & Promos
+          ⚙️ التوصيل الإقليمي والخصومات
 
         </button>
 
@@ -1200,7 +1200,7 @@ export default function AdminDashboard() {
 
 
 
-      {/* TAB 1: ORDERS MANAGEMENT */}
+      {/* تبويب 1: إدارة الطلبات */}
 
       {activeTab === 'orders' && (
 
@@ -1208,7 +1208,7 @@ export default function AdminDashboard() {
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
 
-            <h3 style={{ margin: 0, color: '#FD7100' }}>📋 Customer Orders</h3>
+            <h3 style={{ margin: 0, color: '#FD7100' }}>📋 طلبات العملاء</h3>
 
             
 
@@ -1218,13 +1218,13 @@ export default function AdminDashboard() {
 
                 type="text" 
 
-                placeholder="Search by name, phone, ID..." 
+                placeholder="البحث بالاسم، الهاتف، المعرف..." 
 
                 value={orderSearchQuery} 
 
                 onChange={e => setOrderSearchQuery(e.target.value)}
 
-                style={{ padding: '0.5rem 0.8rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', fontSize: '0.85rem' }}
+                style={{ padding: '0.5rem 0.8rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', fontSize: '0.85rem', textAlign: 'right' }}
 
               />
 
@@ -1238,17 +1238,17 @@ export default function AdminDashboard() {
 
               >
 
-                <option value="ALL">All Statuses</option>
+                <option value="ALL">جميع الحالات</option>
 
-                <option value="Pending">Pending</option>
+                <option value="Pending">قيد الانتظار (Pending)</option>
 
-                <option value="Processing">Processing</option>
+                <option value="Processing">قيد المعالجة (Processing)</option>
 
-                <option value="Shipped">Shipped</option>
+                <option value="Shipped">تم الشحن (Shipped)</option>
 
-                <option value="Delivered">Delivered</option>
+                <option value="Delivered">تم التوصيل (Delivered)</option>
 
-                <option value="Cancelled">Cancelled</option>
+                <option value="Cancelled">ملغي (Cancelled)</option>
 
               </select>
 
@@ -1260,7 +1260,7 @@ export default function AdminDashboard() {
 
           {sortedOrders.length === 0 ? (
 
-            <p style={{ opacity: 0.6, textAlign: 'center', padding: '2rem 0' }}>No matching orders found.</p>
+            <p style={{ opacity: 0.6, textAlign: 'center', padding: '2rem 0' }}>لم يتم العثور على طلبات مطابقة.</p>
 
           ) : (
 
@@ -1280,7 +1280,7 @@ export default function AdminDashboard() {
 
                       <div>
 
-                        <strong style={{ fontSize: '1rem', color: '#FD7100' }}>Order #{ordId}</strong>
+                        <strong style={{ fontSize: '1rem', color: '#FD7100' }}>طلب #{ordId}</strong>
 
                         <span style={{ display: 'block', fontSize: '0.75rem', opacity: 0.6 }}>{new Date(ord.createdAt || Date.now()).toLocaleString()}</span>
 
@@ -1302,15 +1302,15 @@ export default function AdminDashboard() {
 
                         >
 
-                          <option value="Pending">Pending</option>
+                          <option value="Pending">قيد الانتظار</option>
 
-                          <option value="Processing">Processing</option>
+                          <option value="Processing">قيد المعالجة</option>
 
-                          <option value="Shipped">Shipped</option>
+                          <option value="Shipped">تم الشحن</option>
 
-                          <option value="Delivered">Delivered</option>
+                          <option value="Delivered">تم التوصيل</option>
 
-                          <option value="Cancelled">Cancelled</option>
+                          <option value="Cancelled">ملغي</option>
 
                         </select>
 
@@ -1326,11 +1326,11 @@ export default function AdminDashboard() {
 
                         <div>
 
-                          <p style={{ margin: '0 0 0.2rem 0' }}>👤 <strong>Name:</strong> {ord.customer.arabicName}</p>
+                          <p style={{ margin: '0 0 0.2rem 0' }}>👤 <strong>الاسم:</strong> {ord.customer.arabicName}</p>
 
-                          <p style={{ margin: '0 0 0.2rem 0' }}>📞 <strong>Phone:</strong> {ord.customer.phone1}</p>
+                          <p style={{ margin: '0 0 0.2rem 0' }}>📞 <strong>الهاتف:</strong> {ord.customer.phone1}</p>
 
-                          <p style={{ margin: 0 }}>📍 <strong>Address:</strong> {ord.customer.manualAddress}</p>
+                          <p style={{ margin: 0 }}>📍 <strong>العنوان:</strong> {ord.customer.manualAddress}</p>
 
                         </div>
 
@@ -1338,19 +1338,19 @@ export default function AdminDashboard() {
 
                           <button onClick={() => { setEditingOrder(ord); setEditArabicName(ord.customer.arabicName || ''); setEditPhone(ord.customer.phone1 || ''); setEditAddress(ord.customer.manualAddress || ''); setEditItems(ord.items ? [...ord.items] : []); }} style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>
 
-                            ✏️ Full Edit
+                            ✏️ تعديل كامل
 
                           </button>
 
                           <button onClick={() => handlePrintReceipt(ord)} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>
 
-                            🖨️ Print Receipt
+                            🖨️ طباعة الإيصال
 
                           </button>
 
                           <button onClick={() => handleDeleteOrder(ordId)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>
 
-                            🗑️ Delete Order
+                            🗑️ حذف الطلب
 
                           </button>
 
@@ -1366,7 +1366,7 @@ export default function AdminDashboard() {
 
                       <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>
 
-                        Items count: <strong>{ord.items ? ord.items.reduce((s, i) => s + i.quantity, 0) : 0}</strong>
+                        عدد المنتجات: <strong>{ord.items ? ord.items.reduce((s, i) => s + i.quantity, 0) : 0}</strong>
 
                       </span>
 
@@ -1374,13 +1374,13 @@ export default function AdminDashboard() {
 
                         <span style={{ fontWeight: 'bold', color: '#FD7100', fontSize: '0.95rem' }}>
 
-                          Total: {Number(ord.grandTotal || ord.total || 0).toFixed(2)} JD
+                          المجموع: {Number(ord.grandTotal || ord.total || 0).toFixed(2)} دينار
 
                         </span>
 
                         <button onClick={() => setSelectedOrder(ord)} style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}>
 
-                          🔍 View Details
+                          🔍 عرض التفاصيل
 
                         </button>
 
@@ -1404,7 +1404,7 @@ export default function AdminDashboard() {
 
 
 
-      {/* TAB 2: INVENTORY TABLE & TEMPLATE IMPORT */}
+      {/* تبويب 2: جدول المخزون واستيراد القوالب */}
 
       {activeTab === 'inventory' && (
 
@@ -1414,11 +1414,11 @@ export default function AdminDashboard() {
 
             <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
 
-              <h3 style={{ margin: '0 0 0.5rem 0', color: '#FD7100', fontSize: '1.1rem' }}>📄 CSV Templates & Import/Export</h3>
+              <h3 style={{ margin: '0 0 0.5rem 0', color: '#FD7100', fontSize: '1.1rem' }}>📄 قوالب CSV والاستيراد/التصدير</h3>
 
               <p style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', opacity: 0.7, lineHeight: '1.4' }}>
 
-                Download the CSV template with barcode IDs, colors & descriptions, edit in Excel, and import.
+                قم بتنزيل قالب CSV الذي يتضمن معرّفات الباركود، الألوان، والأوصاف، ثم قم بتعديله عبر إكسل وارفعه.
 
               </p>
 
@@ -1426,13 +1426,13 @@ export default function AdminDashboard() {
 
                 <button onClick={handleDownloadCsvTemplate} style={{ background: '#d97706', color: '#fff', border: 'none', padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
 
-                  📥 Download CSV Template
+                  📥 تنزيل قالب CSV
 
                 </button>
 
                 <label style={{ background: '#3b82f6', color: '#fff', padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', display: 'inline-block' }}>
 
-                  📤 Import Filled CSV
+                  📤 استيراد ملف CSV مملوء
 
                   <input type="file" accept=".csv" onChange={handleImportInventory} style={{ display: 'none' }} />
 
@@ -1440,7 +1440,7 @@ export default function AdminDashboard() {
 
                 <button onClick={handleExportInventory} style={{ background: '#10b981', color: '#fff', border: 'none', padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
 
-                  💾 Backup All (CSV)
+                  💾 نسخة احتياطية كاملة (CSV)
 
                 </button>
 
@@ -1452,11 +1452,11 @@ export default function AdminDashboard() {
 
             <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
 
-              <h3 style={{ margin: '0 0 0.5rem 0', color: '#ef4444', fontSize: '1.1rem' }}>⚠️ Low Stock Monitor ({lowStockProducts.length})</h3>
+              <h3 style={{ margin: '0 0 0.5rem 0', color: '#ef4444', fontSize: '1.1rem' }}>⚠️ مراقبة المخزون المنخفض ({lowStockProducts.length})</h3>
 
               <p style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', opacity: 0.7, lineHeight: '1.4' }}>
 
-                Products running low or out of stock (Stock ≤ 3).
+                المنتجات التي نفذت أو قاربت على النفاد (المخزون ≤ 3).
 
               </p>
 
@@ -1464,7 +1464,7 @@ export default function AdminDashboard() {
 
                 {lowStockProducts.length === 0 ? (
 
-                  <span style={{ fontSize: '0.85rem', color: '#4ade80' }}>All products are well stocked!</span>
+                  <span style={{ fontSize: '0.85rem', color: '#4ade80' }}>جميع المنتجات متوفرة بشكل جيد!</span>
 
                 ) : (
 
@@ -1474,7 +1474,7 @@ export default function AdminDashboard() {
 
                       <span>{p.name}</span>
 
-                      <strong style={{ color: '#ef4444' }}>Stock: {p.stock}</strong>
+                      <strong style={{ color: '#ef4444' }}>المخزون: {p.stock}</strong>
 
                     </div>
 
@@ -1494,7 +1494,7 @@ export default function AdminDashboard() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem', flexWrap: 'wrap', gap: '1rem' }}>
 
-              <h3 style={{ margin: 0, color: '#FD7100' }}>📦 Inventory Table ({filteredProducts.length} items shown)</h3>
+              <h3 style={{ margin: 0, color: '#FD7100' }}>📦 جدول المخزون ({filteredProducts.length} منتج معروض)</h3>
 
               
 
@@ -1502,7 +1502,7 @@ export default function AdminDashboard() {
 
                 <button onClick={() => { resetProductForm(); setIsAddingProduct(true); }} style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
 
-                  ➕ Add New Product
+                  ➕ إضافة منتج جديد
 
                 </button>
 
@@ -1510,13 +1510,13 @@ export default function AdminDashboard() {
 
                   type="text" 
 
-                  placeholder="Search items..." 
+                  placeholder="البحث في المنتجات..." 
 
                   value={productSearchQuery} 
 
                   onChange={e => setProductSearchQuery(e.target.value)}
 
-                  style={{ padding: '0.5rem 0.8rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', fontSize: '0.85rem', width: '200px' }}
+                  style={{ padding: '0.5rem 0.8rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', fontSize: '0.85rem', width: '200px', textAlign: 'right' }}
 
                 />
 
@@ -1530,17 +1530,17 @@ export default function AdminDashboard() {
 
                 >
 
-                  <option value="ALL">All Categories</option>
+                  <option value="ALL">جميع الفئات</option>
 
-                  <option value="Cleaning">Cleaning</option>
+                  <option value="Cleaning">تنظيف</option>
 
-                  <option value="Furniture">Furniture</option>
+                  <option value="Furniture">أثاث</option>
 
-                  <option value="Makeup">Makeup</option>
+                  <option value="Makeup">مكياج</option>
 
-                  <option value="Gifts">Gifts</option>
+                  <option value="Gifts">هدايا</option>
 
-                  <option value="Kitchen">Kitchen</option>
+                  <option value="Kitchen">مطبخ</option>
 
                 </select>
 
@@ -1550,55 +1550,55 @@ export default function AdminDashboard() {
 
 
 
-            {/* MANUAL ADD / EDIT PRODUCT FORM */}
+            {/* نموذج إضافة / تعديل منتج يدوي */}
 
             {isAddingProduct && (
 
               <div style={{ background: '#242323', padding: '1.5rem', borderRadius: '10px', marginBottom: '1.5rem', border: '1px solid #FD7100' }}>
 
-                <h4 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>{editingId ? `✏️ Edit Product Barcode/ID: ${editingId}` : '➕ Add New Product'}</h4>
+                <h4 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>{editingId ? `✏️ تعديل باركود/معرف المنتج: ${editingId}` : '➕ إضافة منتج جديد'}</h4>
 
                 <form onSubmit={handleSaveProduct} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
 
                   <div>
 
-                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Barcode / Product ID (Optional)</label>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>الباركود / معرف المنتج (اختياري)</label>
 
-                    <input type="text" value={formId} onChange={e => setFormId(e.target.value)} placeholder="Leave blank to auto-generate" style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
-
-                  </div>
-
-                  <div>
-
-                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Product Name *</label>
-
-                    <input type="text" value={formName} onChange={e => setFormName(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                    <input type="text" value={formId} onChange={e => setFormId(e.target.value)} placeholder="اتركه فارغاً للتوليد التلقائي" style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', textAlign: 'right' }} />
 
                   </div>
 
                   <div>
 
-                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Price (JD) *</label>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>اسم المنتج *</label>
 
-                    <input type="number" step="0.01" value={formPrice} onChange={e => setFormPrice(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                    <input type="text" value={formName} onChange={e => setFormName(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', textAlign: 'right' }} />
 
                   </div>
 
                   <div>
 
-                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Category *</label>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>السعر (دينار) *</label>
+
+                    <input type="number" step="0.01" value={formPrice} onChange={e => setFormPrice(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', textAlign: 'right' }} />
+
+                  </div>
+
+                  <div>
+
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>الفئة *</label>
 
                     <select value={formCategory} onChange={e => setFormCategory(e.target.value)} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }}>
 
-                      <option value="Cleaning">Cleaning</option>
+                      <option value="Cleaning">تنظيف</option>
 
-                      <option value="Furniture">Furniture</option>
+                      <option value="Furniture">أثاث</option>
 
-                      <option value="Makeup">Makeup</option>
+                      <option value="Makeup">مكياج</option>
 
-                      <option value="Gifts">Gifts</option>
+                      <option value="Gifts">هدايا</option>
 
-                      <option value="Kitchen">Kitchen</option>
+                      <option value="Kitchen">مطبخ</option>
 
                     </select>
 
@@ -1606,15 +1606,15 @@ export default function AdminDashboard() {
 
                   <div>
 
-                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Stock Quantity</label>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>كمية المخزون</label>
 
-                    <input type="number" value={formStock} onChange={e => setFormStock(e.target.value)} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                    <input type="number" value={formStock} onChange={e => setFormStock(e.target.value)} style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', textAlign: 'right' }} />
 
                   </div>
 
                   <div>
 
-                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Color Hex / Code</label>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>كود/رمز اللون (Hex)</label>
 
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
 
@@ -1628,23 +1628,23 @@ export default function AdminDashboard() {
 
                   <div>
 
-                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Color Name</label>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>اسم اللون</label>
 
-                    <input type="text" value={formColorName} onChange={e => setFormColorName(e.target.value)} placeholder="e.g. Red / Matte Black" style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
-
-                  </div>
-
-                  <div style={{ gridColumn: 'span 2' }}>
-
-                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Main Image URL</label>
-
-                    <input type="text" value={formImage} onChange={e => setFormImage(e.target.value)} placeholder="/icons/... or https://..." style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                    <input type="text" value={formColorName} onChange={e => setFormColorName(e.target.value)} placeholder="مثال: أحمر / أسود مطفي" style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', textAlign: 'right' }} />
 
                   </div>
 
                   <div style={{ gridColumn: 'span 2' }}>
 
-                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Extra Images URLs (Comma-separated)</label>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>رابط الصورة الرئيسية</label>
+
+                    <input type="text" value={formImage} onChange={e => setFormImage(e.target.value)} placeholder="/icons/... أو https://..." style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+
+                  </div>
+
+                  <div style={{ gridColumn: 'span 2' }}>
+
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>روابط الصور الإضافية (تفصل بينها بفواصل)</label>
 
                     <input type="text" value={formImagesInput} onChange={e => setFormImagesInput(e.target.value)} placeholder="https://img1.com/a.jpg, https://img2.com/b.jpg" style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
 
@@ -1652,9 +1652,9 @@ export default function AdminDashboard() {
 
                   <div style={{ gridColumn: 'span 2' }}>
 
-                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Description & Features</label>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>الوصف والمميزات</label>
 
-                    <textarea value={formDescription} onChange={e => setFormDescription(e.target.value)} rows="3" style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                    <textarea value={formDescription} onChange={e => setFormDescription(e.target.value)} rows="3" style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', textAlign: 'right' }} />
 
                   </div>
 
@@ -1662,15 +1662,15 @@ export default function AdminDashboard() {
 
                     <input type="checkbox" id="featuredCheck" checked={formFeatured} onChange={e => setFormFeatured(e.target.checked)} style={{ width: '18px', height: '18px', accentColor: '#FD7100' }} />
 
-                    <label htmlFor="featuredCheck" style={{ fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}>⭐ Pin as Featured Product on Top Banner</label>
+                    <label htmlFor="featuredCheck" style={{ fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}>⭐ تثبيت كمنتج مميز في الشريط العلوي</label>
 
                   </div>
 
                   <div style={{ gridColumn: 'span 2', display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
 
-                    <button type="submit" style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem 1.5rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>{editingId ? 'Update Product' : 'Save Product'}</button>
+                    <button type="submit" style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem 1.5rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>{editingId ? 'تحديث المنتج' : 'حفظ المنتج'}</button>
 
-                    <button type="button" onClick={resetProductForm} style={{ background: '#555', color: '#FFF7EE', border: 'none', padding: '0.7rem 1.2rem', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
+                    <button type="button" onClick={resetProductForm} style={{ background: '#555', color: '#FFF7EE', border: 'none', padding: '0.7rem 1.2rem', borderRadius: '8px', cursor: 'pointer' }}>إلغاء</button>
 
                   </div>
 
@@ -1682,31 +1682,31 @@ export default function AdminDashboard() {
 
 
 
-            {/* PRODUCT TABLE VIEW */}
+            {/* عرض جدول المنتجات */}
 
             <div style={{ overflowX: 'auto' }}>
 
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '0.85rem' }}>
 
                 <thead>
 
                   <tr style={{ background: '#242323', borderBottom: '1px solid rgba(255,247,238,0.2)', color: '#FD7100' }}>
 
-                    <th style={{ padding: '0.8rem' }}>Barcode / ID</th>
+                    <th style={{ padding: '0.8rem' }}>الباركود / المعرف</th>
 
-                    <th style={{ padding: '0.8rem' }}>Product Name</th>
+                    <th style={{ padding: '0.8rem' }}>اسم المنتج</th>
 
-                    <th style={{ padding: '0.8rem' }}>Category</th>
+                    <th style={{ padding: '0.8rem' }}>الفئة</th>
 
-                    <th style={{ padding: '0.8rem' }}>Price</th>
+                    <th style={{ padding: '0.8rem' }}>السعر</th>
 
-                    <th style={{ padding: '0.8rem' }}>Color</th>
+                    <th style={{ padding: '0.8rem' }}>اللون</th>
 
-                    <th style={{ padding: '0.8rem' }}>Stock</th>
+                    <th style={{ padding: '0.8rem' }}>المخزون</th>
 
-                    <th style={{ padding: '0.8rem' }}>Featured</th>
+                    <th style={{ padding: '0.8rem' }}>مميز</th>
 
-                    <th style={{ padding: '0.8rem', textAlign: 'center' }}>Actions</th>
+                    <th style={{ padding: '0.8rem', textAlign: 'center' }}>الإجراءات</th>
 
                   </tr>
 
@@ -1732,7 +1732,7 @@ export default function AdminDashboard() {
 
                         </td>
 
-                        <td style={{ padding: '0.8rem', fontWeight: 'bold', color: '#FD7100' }}>{Number(prod.price).toFixed(2)} JD</td>
+                        <td style={{ padding: '0.8rem', fontWeight: 'bold', color: '#FD7100' }}>{Number(prod.price).toFixed(2)} دينار</td>
 
                         <td style={{ padding: '0.8rem' }}>
 
@@ -1740,7 +1740,7 @@ export default function AdminDashboard() {
 
                             <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: prod.color || '#ef4444', border: '1px solid #fff' }}></div>
 
-                            <span style={{ fontSize: '0.75rem' }}>{prod.colorName || 'Default'}</span>
+                            <span style={{ fontSize: '0.75rem' }}>{prod.colorName || 'افتراضي'}</span>
 
                           </div>
 
@@ -1752,15 +1752,15 @@ export default function AdminDashboard() {
 
                         </td>
 
-                        <td style={{ padding: '0.8rem' }}>{prod.featured ? '⭐ Yes' : '-'}</td>
+                        <td style={{ padding: '0.8rem' }}>{prod.featured ? '⭐ نعم' : '-'}</td>
 
                         <td style={{ padding: '0.8rem', textAlign: 'center' }}>
 
                           <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
 
-                            <button onClick={() => startEditProduct(prod)} style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Edit</button>
+                            <button onClick={() => startEditProduct(prod)} style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>تعديل</button>
 
-                            <button onClick={() => handleDeleteProduct(pId)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>Delete</button>
+                            <button onClick={() => handleDeleteProduct(pId)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>حذف</button>
 
                           </div>
 
@@ -1786,7 +1786,7 @@ export default function AdminDashboard() {
 
 
 
-      {/* TAB 3: REGIONAL DELIVERY & PROMO CODES */}
+      {/* تبويب 3: التوصيل الإقليمي ورموز الخصم */}
 
       {activeTab === 'settings' && (
 
@@ -1794,27 +1794,27 @@ export default function AdminDashboard() {
 
           <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
 
-            <h3 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>🚚 Regional Delivery Fee Configuration</h3>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>🚚 تكوين رسوم التوصيل الإقليمية</h3>
 
             <form onSubmit={handleUpdateSettings} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
               <div>
 
-                <label style={{ fontSize: '0.85rem', fontWeight: 'bold', display: 'block', marginBottom: '0.4rem' }}>Amman Delivery Fee (JD)</label>
+                <label style={{ fontSize: '0.85rem', fontWeight: 'bold', display: 'block', marginBottom: '0.4rem' }}>رسوم توصيل عمان (دينار)</label>
 
-                <input type="number" step="0.50" value={ammanFee} onChange={e => setAmmanFee(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE' }} />
+                <input type="number" step="0.50" value={ammanFee} onChange={e => setAmmanFee(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', textAlign: 'right' }} />
 
               </div>
 
               <div>
 
-                <label style={{ fontSize: '0.85rem', fontWeight: 'bold', display: 'block', marginBottom: '0.4rem' }}>Irbid & Distant Cities Delivery Fee (JD)</label>
+                <label style={{ fontSize: '0.85rem', fontWeight: 'bold', display: 'block', marginBottom: '0.4rem' }}>رسوم توصيل إربد والمدن الأخرى (دينار)</label>
 
-                <input type="number" step="0.50" value={irbidFee} onChange={e => setIrbidFee(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE' }} />
+                <input type="number" step="0.50" value={irbidFee} onChange={e => setIrbidFee(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', textAlign: 'right' }} />
 
               </div>
 
-              <button type="submit" style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Save Delivery Rates</button>
+              <button type="submit" style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>حفظ أسعار التوصيل</button>
 
             </form>
 
@@ -1824,17 +1824,17 @@ export default function AdminDashboard() {
 
           <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
 
-            <h3 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>🎟️ Discount & Promo Codes</h3>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>🎟️ الخصومات ورموز القسائم</h3>
 
             
 
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
 
-              <input type="text" placeholder="Code (e.g. KARAM10)" value={newPromoCode} onChange={e => setNewPromoCode(e.target.value)} style={{ flex: 1, padding: '0.5rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', textTransform: 'uppercase' }} />
+              <input type="text" placeholder="الرمز (مثال: KARAM10)" value={newPromoCode} onChange={e => setNewPromoCode(e.target.value)} style={{ flex: 1, padding: '0.5rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', textTransform: 'uppercase', textAlign: 'right' }} />
 
-              <input type="number" step="0.05" placeholder="Value" value={newPromoVal} onChange={e => setNewPromoVal(e.target.value)} style={{ width: '100px', padding: '0.5rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE' }} />
+              <input type="number" step="0.05" placeholder="القيمة" value={newPromoVal} onChange={e => setNewPromoVal(e.target.value)} style={{ width: '100px', padding: '0.5rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', textAlign: 'right' }} />
 
-              <button type="button" onClick={handleAddPromoCode} style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Add</button>
+              <button type="button" onClick={handleAddPromoCode} style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>إضافة</button>
 
             </div>
 
@@ -1844,7 +1844,7 @@ export default function AdminDashboard() {
 
               {Object.keys(settings.discountCodes || {}).length === 0 ? (
 
-                <p style={{ opacity: 0.6, fontSize: '0.85rem' }}>No active promo codes.</p>
+                <p style={{ opacity: 0.6, fontSize: '0.85rem' }}>لا توجد رموز خصم نشطة.</p>
 
               ) : (
 
@@ -1852,9 +1852,9 @@ export default function AdminDashboard() {
 
                   <div key={code} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#242323', padding: '0.5rem 0.8rem', borderRadius: '6px' }}>
 
-                    <span style={{ fontWeight: 'bold', color: '#4ade80' }}>{code} ({val < 1 ? `${val * 100}% off` : `${val} JD off`})</span>
+                    <span style={{ fontWeight: 'bold', color: '#4ade80' }}>{code} ({val < 1 ? `خصم ${val * 100}%` : `خصم ${val} دينار`})</span>
 
-                    <button onClick={() => handleRemovePromoCode(code)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Remove</button>
+                    <button onClick={() => handleRemovePromoCode(code)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>إزالة</button>
 
                   </div>
 
@@ -1872,17 +1872,17 @@ export default function AdminDashboard() {
 
 
 
-      {/* FULL TRANSACTION VIEW MODAL */}
+      {/* نافذة عرض تفاصيل المعاملة بالكامل */}
 
       {selectedOrder && (
 
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '1rem' }}>
 
-          <div style={{ background: '#2D2C2C', border: '1px solid rgba(255,247,238,0.2)', borderRadius: '14px', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', color: '#FFF7EE' }}>
+          <div dir="rtl" style={{ background: '#2D2C2C', border: '1px solid rgba(255,247,238,0.2)', borderRadius: '14px', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', color: '#FFF7EE', textAlign: 'right' }}>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,247,238,0.2)', paddingBottom: '0.8rem', marginBottom: '1rem' }}>
 
-              <h3 style={{ margin: 0, color: '#FD7100' }}>🔍 Full Receipt #{selectedOrder.id || selectedOrder._id}</h3>
+              <h3 style={{ margin: 0, color: '#FD7100' }}>🔍 تفاصيل الإيصال الكاملة #{selectedOrder.id || selectedOrder._id}</h3>
 
               <button onClick={() => setSelectedOrder(null)} style={{ background: 'transparent', border: 'none', color: '#FFF7EE', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
 
@@ -1894,9 +1894,9 @@ export default function AdminDashboard() {
 
               <div style={{ background: '#242323', padding: '0.8rem', borderRadius: '8px' }}>
 
-                <p style={{ margin: '0 0 0.3rem 0' }}>📅 <strong>Timestamp:</strong> {new Date(selectedOrder.createdAt || Date.now()).toLocaleString()}</p>
+                <p style={{ margin: '0 0 0.3rem 0' }}>📅 <strong>الوقت:</strong> {new Date(selectedOrder.createdAt || Date.now()).toLocaleString()}</p>
 
-                <p style={{ margin: '0 0 0.3rem 0' }}>📌 <strong>Status:</strong> {selectedOrder.status || 'Pending'}</p>
+                <p style={{ margin: '0 0 0.3rem 0' }}>📌 <strong>الحالة:</strong> {selectedOrder.status || 'Pending'}</p>
 
               </div>
 
@@ -1906,11 +1906,11 @@ export default function AdminDashboard() {
 
                 <div style={{ background: '#242323', padding: '0.8rem', borderRadius: '8px' }}>
 
-                  <p style={{ margin: '0 0 0.3rem 0' }}>👤 <strong>Name:</strong> {selectedOrder.customer.arabicName}</p>
+                  <p style={{ margin: '0 0 0.3rem 0' }}>👤 <strong>الاسم:</strong> {selectedOrder.customer.arabicName}</p>
 
-                  <p style={{ margin: '0 0 0.3rem 0' }}>📞 <strong>Phone:</strong> {selectedOrder.customer.phone1}</p>
+                  <p style={{ margin: '0 0 0.3rem 0' }}>📞 <strong>الهاتف:</strong> {selectedOrder.customer.phone1}</p>
 
-                  <p style={{ margin: 0 }}>📍 <strong>Address:</strong> {selectedOrder.customer.manualAddress}</p>
+                  <p style={{ margin: 0 }}>📍 <strong>العنوان:</strong> {selectedOrder.customer.manualAddress}</p>
 
                 </div>
 
@@ -1920,7 +1920,7 @@ export default function AdminDashboard() {
 
               <div>
 
-                <strong>Ordered Line Items:</strong>
+                <strong>المنتجات المطلوبة:</strong>
 
                 <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
 
@@ -1934,13 +1934,13 @@ export default function AdminDashboard() {
 
                         <span style={{ display: 'block', fontSize: '0.75rem', opacity: 0.7 }}>
 
-                          {item.selectedSize ? `Size: ${item.selectedSize} ` : ''} {item.selectedColor ? `Color: ${item.selectedColor}` : ''} (Qty: {item.quantity})
+                          {item.selectedSize ? `الحجم: ${item.selectedSize} ` : ''} {item.selectedColor ? `اللون: ${item.selectedColor}` : ''} (الكمية: {item.quantity})
 
                         </span>
 
                       </div>
 
-                      <span style={{ fontWeight: 'bold', color: '#FD7100' }}>{(item.price * item.quantity).toFixed(2)} JD</span>
+                      <span style={{ fontWeight: 'bold', color: '#FD7100' }}>{(item.price * item.quantity).toFixed(2)} دينار</span>
 
                     </div>
 
@@ -1956,25 +1956,25 @@ export default function AdminDashboard() {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
 
-                  <span>Subtotal:</span>
+                  <span>المجموع الفرعي:</span>
 
-                  <span>{Number(selectedOrder.total || 0).toFixed(2)} JD</span>
+                  <span>{Number(selectedOrder.total || 0).toFixed(2)} دينار</span>
 
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
 
-                  <span>Delivery Fee:</span>
+                  <span>رسوم التوصيل:</span>
 
-                  <span>{Number(selectedOrder.deliveryFee || 2.00).toFixed(2)} JD</span>
+                  <span>{Number(selectedOrder.deliveryFee || 2.00).toFixed(2)} دينار</span>
 
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', fontSize: '1.05rem', color: '#FD7100', marginTop: '0.4rem', borderTop: '1px solid rgba(255,247,238,0.2)', paddingTop: '0.4rem' }}>
 
-                  <span>Grand Total (Cash):</span>
+                  <span>المجموع الإجمالي (نقداً):</span>
 
-                  <span>{Number(selectedOrder.grandTotal || selectedOrder.total || 0).toFixed(2)} JD</span>
+                  <span>{Number(selectedOrder.grandTotal || selectedOrder.total || 0).toFixed(2)} دينار</span>
 
                 </div>
 
@@ -1986,9 +1986,9 @@ export default function AdminDashboard() {
 
             <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1.2rem' }}>
 
-              <button onClick={() => handlePrintReceipt(selectedOrder)} style={{ flex: 1, background: '#10b981', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>🖨️ Print Receipt</button>
+              <button onClick={() => handlePrintReceipt(selectedOrder)} style={{ flex: 1, background: '#10b981', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>🖨️ طباعة الإيصال</button>
 
-              <button onClick={() => setSelectedOrder(null)} style={{ flex: 1, background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Close</button>
+              <button onClick={() => setSelectedOrder(null)} style={{ flex: 1, background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>إغلاق</button>
 
             </div>
 
@@ -2000,15 +2000,15 @@ export default function AdminDashboard() {
 
 
 
-      {/* FULL EDIT ORDER MODAL */}
+      {/* نافذة تعديل الطلب بالكامل */}
 
       {editingOrder && (
 
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '1rem' }}>
 
-          <div style={{ background: '#2D2C2C', border: '1px solid rgba(255,247,238,0.2)', borderRadius: '14px', width: '100%', maxWidth: '550px', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', color: '#FFF7EE' }}>
+          <div dir="rtl" style={{ background: '#2D2C2C', border: '1px solid rgba(255,247,238,0.2)', borderRadius: '14px', width: '100%', maxWidth: '550px', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem', color: '#FFF7EE', textAlign: 'right' }}>
 
-            <h3 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>✏️ Edit Order #{editingOrder.id || editingOrder._id}</h3>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>✏️ تعديل الطلب #{editingOrder.id || editingOrder._id}</h3>
 
             
 
@@ -2016,25 +2016,25 @@ export default function AdminDashboard() {
 
               <div>
 
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Customer Name (Arabic)</label>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>اسم العميل (بالعربية)</label>
 
-                <input type="text" value={editArabicName} onChange={e => setEditArabicName(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE' }} />
-
-              </div>
-
-              <div>
-
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Customer Phone Number</label>
-
-                <input type="text" value={editPhone} onChange={e => setEditPhone(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE' }} />
+                <input type="text" value={editArabicName} onChange={e => setEditArabicName(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', textAlign: 'right' }} />
 
               </div>
 
               <div>
 
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>Delivery Address</label>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>رقم هاتف العميل</label>
 
-                <textarea value={editAddress} onChange={e => setEditAddress(e.target.value)} rows="2" required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE' }} />
+                <input type="text" value={editPhone} onChange={e => setEditPhone(e.target.value)} required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', textAlign: 'right' }} />
+
+              </div>
+
+              <div>
+
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>عنوان التوصيل</label>
+
+                <textarea value={editAddress} onChange={e => setEditAddress(e.target.value)} rows="2" required style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', textAlign: 'right' }} />
 
               </div>
 
@@ -2042,7 +2042,7 @@ export default function AdminDashboard() {
 
               <div>
 
-                <label style={{ fontSize: '0.85rem', fontWeight: 'bold', display: 'block', marginBottom: '0.5rem' }}>Ordered Products & Quantities:</label>
+                <label style={{ fontSize: '0.85rem', fontWeight: 'bold', display: 'block', marginBottom: '0.5rem' }}>المنتجات والكميات المطلوبة:</label>
 
                 {editItems.map((item, idx) => (
 
@@ -2066,11 +2066,11 @@ export default function AdminDashboard() {
 
                       }} 
 
-                      style={{ width: '60px', padding: '0.3rem', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', borderRadius: '4px' }}
+                      style={{ width: '60px', padding: '0.3rem', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', borderRadius: '4px', textAlign: 'right' }}
 
                     />
 
-                    <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#FD7100' }}>{(item.price * item.quantity).toFixed(2)} JD</span>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#FD7100' }}>{(item.price * item.quantity).toFixed(2)} دينار</span>
 
                     <button type="button" onClick={() => setEditItems(prev => prev.filter((_, i) => i !== idx))} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>✕</button>
 
@@ -2084,9 +2084,9 @@ export default function AdminDashboard() {
 
               <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.5rem' }}>
 
-                <button type="submit" style={{ flex: 1, background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Save All Changes</button>
+                <button type="submit" style={{ flex: 1, background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>حفظ كافة التغييرات</button>
 
-                <button type="button" onClick={() => setEditingOrder(null)} style={{ flex: 1, background: '#555', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
+                <button type="button" onClick={() => setEditingOrder(null)} style={{ flex: 1, background: '#555', color: '#FFF7EE', border: 'none', padding: '0.7rem', borderRadius: '8px', cursor: 'pointer' }}>إلغاء</button>
 
               </div>
 

@@ -893,53 +893,35 @@ app.patch('/api/orders/:id', async (req, res) => {
 
 
 app.delete('/api/orders/:id', async (req, res) => {
-
   try {
-
-    const { id } = req.params;
-
-    const numericId = !isNaN(id) ? Number(id) : null;
-
+    let rawId = req.params.id;
     
-
-    const queryConditions = [
-
-      { id: id },
-
-      { _id: id }
-
-    ];
-
-    if (numericId !== null) {
-
-      queryConditions.push({ id: numericId });
-
+    // تنظيف الـ ID لو احتوى على رموز مثل النقطتين أو المسافات
+    if (rawId.includes(':')) {
+      rawId = rawId.split(':').pop(); // أخذ الجزء الأخير بعد النقطتين
     }
 
-
+    const numericId = !isNaN(rawId) ? Number(rawId) : null;
+    
+    const queryConditions = [
+      { id: rawId },
+      { _id: rawId }
+    ];
+    if (numericId !== null) {
+      queryConditions.push({ id: numericId });
+    }
 
     const deletedOrder = await Order.findOneAndDelete({ $or: queryConditions });
-
     
-
     if (!deletedOrder) {
-
       return res.status(404).json({ error: 'Order not found in database' });
-
     }
 
-
-
-    res.json({ success: true, message: 'Order deleted successfully', id });
-
+    res.json({ success: true, message: 'Order deleted successfully', id: rawId });
   } catch (err) {
-
     console.error('Error deleting order:', err);
-
     res.status(500).json({ error: 'Failed to delete order' });
-
   }
-
 });
 
 
