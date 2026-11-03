@@ -78,6 +78,8 @@ const orderSchema = new mongoose.Schema({
 
   id: { type: mongoose.Schema.Types.Mixed, required: true, unique: true },
 
+  _id: { type: mongoose.Schema.Types.Mixed }, // <--- FIX: Defined as Mixed to prevent ObjectId casting errors on numeric IDs
+
   items: Array,
 
   total: Number,
@@ -608,6 +610,8 @@ app.post('/api/orders', async (req, res) => {
 
       id: count + 1,
 
+      _id: count + 1,
+
       items: items,
 
       total: subtotal,
@@ -683,6 +687,8 @@ app.post('/api/orders/import', async (req, res) => {
       const formattedOrder = {
 
         id: oId,
+
+        _id: oId,
 
         items: Array.isArray(ord.items) ? ord.items : [],
 
@@ -770,7 +776,7 @@ app.put('/api/orders/:id', async (req, res) => {
 
     const queryConditions = [{ id: id }, { _id: id }];
 
-    if (numericId !== null) queryConditions.push({ id: numericId });
+    if (numericId !== null) queryConditions.push({ id: numericId }, { _id: numericId });
 
 
 
@@ -838,7 +844,7 @@ app.patch('/api/orders/:id', async (req, res) => {
 
     const queryConditions = [{ id: id }, { _id: id }];
 
-    if (numericId !== null) queryConditions.push({ id: numericId });
+    if (numericId !== null) queryConditions.push({ id: numericId }, { _id: numericId });
 
 
 
@@ -893,35 +899,61 @@ app.patch('/api/orders/:id', async (req, res) => {
 
 
 app.delete('/api/orders/:id', async (req, res) => {
+
   try {
+
     let rawId = req.params.id;
-    
-    // تنظيف الـ ID لو احتوى على رموز مثل النقطتين أو المسافات
+
     if (rawId.includes(':')) {
-      rawId = rawId.split(':').pop(); // أخذ الجزء الأخير بعد النقطتين
+
+      rawId = rawId.split(':').pop();
+
     }
+
+
 
     const numericId = !isNaN(rawId) ? Number(rawId) : null;
+
     
+
     const queryConditions = [
+
       { id: rawId },
+
       { _id: rawId }
+
     ];
+
     if (numericId !== null) {
-      queryConditions.push({ id: numericId });
+
+      queryConditions.push({ id: numericId }, { _id: numericId });
+
     }
+
+
 
     const deletedOrder = await Order.findOneAndDelete({ $or: queryConditions });
+
     
+
     if (!deletedOrder) {
+
       return res.status(404).json({ error: 'Order not found in database' });
+
     }
 
+
+
     res.json({ success: true, message: 'Order deleted successfully', id: rawId });
+
   } catch (err) {
+
     console.error('Error deleting order:', err);
+
     res.status(500).json({ error: 'Failed to delete order' });
+
   }
+
 });
 
 
