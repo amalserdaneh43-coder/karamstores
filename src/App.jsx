@@ -170,7 +170,7 @@ const translations = {
 
     searchResults: "نتائج البحث عن",
 
-    backToCatalog: "← العودة إلى الكتالوج",
+    backToCatalog: "← العودة إلى الكتالوج الرئيسي",
 
     selectSize: "اختر المقاس:",
 
@@ -996,6 +996,40 @@ export default function StoreApp() {
 
 
 
+  // Common styling for big prominent orange back buttons
+
+  const bigOrangeBackButtonStyle = {
+
+    background: '#FD7100',
+
+    color: '#1c1b1b',
+
+    border: 'none',
+
+    padding: '0.7rem 1.4rem',
+
+    borderRadius: '10px',
+
+    fontWeight: '900',
+
+    fontSize: '1rem',
+
+    cursor: 'pointer',
+
+    display: 'inline-flex',
+
+    alignItems: 'center',
+
+    gap: '0.5rem',
+
+    boxShadow: '0 4px 12px rgba(253, 113, 0, 0.4)',
+
+    marginBottom: '1rem'
+
+  };
+
+
+
   return (
 
     <div dir={isRtl ? 'rtl' : 'ltr'} className="store-container">
@@ -1130,7 +1164,7 @@ export default function StoreApp() {
 
           <div style={{ width: '92%', maxWidth: '850px', margin: '1rem auto' }}>
 
-            <button onClick={() => window.history.back()} className="back-button">
+            <button onClick={() => window.history.back()} style={bigOrangeBackButtonStyle}>
 
               {t.backToCatalog}
 
@@ -1378,7 +1412,7 @@ export default function StoreApp() {
 
         <div style={{ width: '92%', maxWidth: '1000px', margin: '1.5rem auto' }}>
 
-          <button onClick={() => window.history.back()} className="back-button">
+          <button onClick={() => window.history.back()} style={bigOrangeBackButtonStyle}>
 
             {t.backToCatalog}
 
@@ -1430,7 +1464,7 @@ export default function StoreApp() {
 
         <div style={{ width: '92%', maxWidth: '1000px', margin: '1.5rem auto' }}>
 
-          <button onClick={() => window.history.back()} className="back-button">{t.backToCatalog}</button>
+          <button onClick={() => window.history.back()} style={bigOrangeBackButtonStyle}>{t.backToCatalog}</button>
 
           <h2 style={{ fontSize: '1.4rem', color: '#FFF7EE', marginBottom: '1.2rem', fontWeight: '700' }}>{t.categoryCatalog}: {selectedCategoryView}</h2>
 
@@ -1478,7 +1512,7 @@ export default function StoreApp() {
 
         <div style={{ width: '92%', maxWidth: '1000px', margin: '1.5rem auto' }}>
 
-          <button onClick={() => window.history.back()} className="back-button">{t.backToCatalog}</button>
+          <button onClick={() => window.history.back()} style={bigOrangeBackButtonStyle}>{t.backToCatalog}</button>
 
           <h2 style={{ fontSize: '1.4rem', color: '#FFF7EE', marginBottom: '1rem', fontWeight: '700' }}>{t.completeCatalog}</h2>
 
