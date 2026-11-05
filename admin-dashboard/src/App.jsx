@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 
 export default function AdminDashboard() {
   // --- PIN / AUTH GUARD STATE ---
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminPinInput, setAdminPinInput] = useState('');
-  const ADMIN_PIN = '2026'; // You can change your local floor PIN here
+  const ADMIN_PIN = '2026'; //[cite: 1]
 
   const [activeTab, setActiveTab] = useState('orders');
   const [products, setProducts] = useState([]);
@@ -16,6 +16,14 @@ export default function AdminDashboard() {
   const [orderStatusFilter, setOrderStatusFilter] = useState('ALL');
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [productCategoryFilter, setProductCategoryFilter] = useState('ALL');
+
+  // --- FEATURE: BARCODE SCANNER QUICK LOOKUP MODE ---
+  const [barcodeScanInput, setBarcodeScanInput] = useState('');
+  const barcodeInputRef = useRef(null);
+
+  // --- FEATURE: BATCH ORDER SELECTION STATE ---
+  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+  const [batchStatusTarget, setBatchStatusTarget] = useState('Processing');
 
   // Transaction Detail Modal State
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -98,6 +106,25 @@ export default function AdminDashboard() {
     fetchData();
   }, []);
 
+  // --- FEATURE: BARCODE SCANNER HANDLER ---
+  const handleBarcodeScanSubmit = (e) => {
+    e.preventDefault();
+    const scannedCode = barcodeScanInput.trim();
+    if (!scannedCode) return;
+
+    const foundProd = products.find(p => String(p.id || p._id) === scannedCode);
+    if (foundProd) {
+      startEditProduct(foundProd);
+      setBarcodeScanInput('');
+    } else {
+      alert(`لم يتم العثور على منتج بالباركود: ${scannedCode}. هل ترغب في إضافته؟`);
+      resetProductForm();
+      setFormId(scannedCode);
+      setIsAddingProduct(true);
+      setBarcodeScanInput('');
+    }
+  };
+
   // --- 80mm THERMAL RECEIPT PRINT CSS & LOGIC ---
   const handlePrintReceipt = (ord) => {
     const printWindow = window.open('', '_blank');
@@ -175,6 +202,137 @@ export default function AdminDashboard() {
     printWindow.document.write(htmlContent);
     printWindow.document.close();
   };
+
+  // --- FEATURE: COURIER DELIVERY MANIFEST EXPORT (CSV) ---
+  const handleExportDeliveryManifest = () => {
+    const targetOrders = selectedOrderIds.length > 0 
+      ? orders.filter(o => selectedOrderIds.includes(String(o.id || o._id)))
+      : orders.filter(o => (o.status || 'Pending') === 'Pending' || (o.status || 'Pending') === 'Processing');
+
+    if (targetOrders.length === 0) {
+      alert('لا توجد طلبات لتصدير كشف التوصيل.');
+      return;
+    }
+
+    const headers = ['رقم الطلب', 'اسم العميل', 'رقم الهاتف', 'المحافظة / العنوان', 'عدد القطع', 'المبلغ المطلوب تحصيله (نقداً)'];
+    const csvRows = [headers.join(',')];
+
+    targetOrders.forEach(ord => {
+      const escapeCell = (val) => {
+        if (val === null || val === undefined) return '""';
+        const str = String(val).replace(/"/g, '""');
+        return `"${str}"`;
+      };
+
+      const totalPieces = ord.items ? ord.items.reduce((s, i) => s + i.quantity, 0) : 0;
+      const cashDue = Number(ord.grandTotal || ord.total || 0).toFixed(2);
+      const custName = ord.customer?.arabicName || ord.arabicName || 'غير متوفر';
+      const custPhone = ord.customer?.phone1 || ord.phone || 'غير متوفر';
+      const custAddress = ord.customer?.manualAddress || ord.address || 'غير متوفر';
+
+      const row = [
+        escapeCell(`#${ord.id || ord._id}`),
+        escapeCell(custName),
+        escapeCell(`\t${custPhone}`),
+        escapeCell(custAddress),
+        escapeCell(totalPieces),
+        escapeCell(`${cashDue} JD`)
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    const blob = new Blob(['\uFEFF' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `karam_delivery_manifest_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // --- FEATURE: BATCH ORDER STATUS UPDATES ---
+  const handleBatchStatusUpdate = () => {
+    if (selectedOrderIds.length === 0) {
+      alert('يرجى تحديد طلب واحد على الأقل أولاً.');
+      return;
+    }
+
+    Promise.all(
+      selectedOrderIds.map(id =>
+        fetch(`https://karamstores.onrender.com/api/orders/${id}`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ status: batchStatusTarget })
+        }).then(res => res.json())
+      )
+    )
+      .then(() => {
+        alert(`تم تحديث حالة ${selectedOrderIds.length} طلب إلى (${batchStatusTarget}) بنجاح!`);
+        setSelectedOrderIds([]);
+        fetchData();
+      })
+      .catch(err => {
+        console.error('خطأ في التحديث الجماعي:', err);
+        alert('حدث خطأ أثناء تنفيذ التحديث الجماعي للطلبات.');
+      });
+  };
+
+  const toggleSelectAllOrders = (e) => {
+    if (e.target.checked) {
+      const allIds = sortedOrders.map(o => String(o.id || o._id));
+      setSelectedOrderIds(allIds);
+    } else {
+      setSelectedOrderIds([]);
+    }
+  };
+
+  const toggleSelectSingleOrder = (id) => {
+    const strId = String(id);
+    setSelectedOrderIds(prev => 
+      prev.includes(strId) ? prev.filter(i => i !== strId) : [...prev, strId]
+    );
+  };
+
+  // --- FEATURE: DISCOUNT CODE ANALYTICS COMPUTATION ---
+  const promoCodeAnalytics = useMemo(() => {
+    const codesMap = settings.discountCodes || {};
+    const stats = {};
+
+    // Initialize all configured codes
+    Object.keys(codesMap).forEach(code => {
+      stats[code] = { count: 0, totalValueGiven: 0 };
+    });
+
+    // Scan all orders to tally redemptions
+    orders.forEach(ord => {
+      // Check if order has discount amount recorded and associated promo code
+      if (ord.discountAmount && ord.discountAmount > 0) {
+        // Find matching code based on discount value or default fallback tag
+        // If order doesn't explicitly store code string, attribute proportionally or group under general redemption
+        let matchedCode = ord.promoCode ? String(ord.promoCode).toUpperCase() : null;
+        if (!matchedCode) {
+          // Attempt to match by exact discount value
+          for (const [code, val] of Object.entries(codesMap)) {
+            const expectedVal = val < 1 ? (ord.total || 0) * val : val;
+            if (Math.abs(expectedVal - ord.discountAmount) < 0.1) {
+              matchedCode = code;
+              break;
+            }
+          }
+        }
+        if (!matchedCode) matchedCode = 'CUSTOM / OTHER';
+
+        if (!stats[matchedCode]) {
+          stats[matchedCode] = { count: 0, totalValueGiven: 0 };
+        }
+        stats[matchedCode].count++;
+        stats[matchedCode].totalValueGiven += Number(ord.discountAmount);
+      }
+    });
+
+    return stats;
+  }, [orders, settings]);
 
   // --- CSV TEMPLATE & EXPORT ---
   const handleDownloadCsvTemplate = () => {
@@ -319,9 +477,8 @@ export default function AdminDashboard() {
         });
       }
 
-      // Stage into temporary preview state rather than committing directly
       setStagedCsvProducts(parsedProducts);
-      e.target.value = null; // Reset file input
+      e.target.value = null;
     };
   };
 
@@ -471,7 +628,6 @@ export default function AdminDashboard() {
     })
       .then(res => res.json())
       .then(() => {
-        // Update local state immediately without full page re-fetch to preserve scroll & filters
         setOrders(prevOrders => prevOrders.map(ord => {
           const id = ord.id || ord._id;
           if (String(id) === String(orderId)) {
@@ -749,20 +905,73 @@ export default function AdminDashboard() {
               </select>
             </div>
           </div>
+
+          {/* BATCH ACTIONS & MANIFEST EXPORT TOOLBAR */}
+          <div style={{ background: '#242323', padding: '0.8rem 1rem', borderRadius: '8px', marginBottom: '1.2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.8rem', border: '1px solid rgba(255,247,238,0.15)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                <input 
+                  type="checkbox" 
+                  onChange={toggleSelectAllOrders}
+                  checked={sortedOrders.length > 0 && selectedOrderIds.length === sortedOrders.length}
+                  style={{ width: '16px', height: '16px', accentColor: '#FD7100' }}
+                />
+                تحديد الكل ({selectedOrderIds.length} محدد)
+              </label>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <select 
+                  value={batchStatusTarget} 
+                  onChange={e => setBatchStatusTarget(e.target.value)}
+                  style={{ padding: '0.4rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', fontSize: '0.8rem' }}
+                >
+                  <option value="Pending">قيد الانتظار</option>
+                  <option value="Processing">قيد المعالجة</option>
+                  <option value="Shipped">تم الشحن</option>
+                  <option value="Delivered">تم التوصيل</option>
+                  <option value="Cancelled">ملغي</option>
+                </select>
+                <button 
+                  onClick={handleBatchStatusUpdate}
+                  disabled={selectedOrderIds.length === 0}
+                  style={{ background: selectedOrderIds.length > 0 ? '#3b82f6' : '#555', color: '#fff', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '6px', cursor: selectedOrderIds.length > 0 ? 'pointer' : 'not-allowed', fontSize: '0.8rem', fontWeight: 'bold' }}
+                >
+                  ⚡ تحديث جماعي للحالة
+                </button>
+              </div>
+            </div>
+
+            <button 
+              onClick={handleExportDeliveryManifest}
+              style={{ background: '#10b981', color: '#fff', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
+            >
+              📄 تصدير كشف التوصيل (CSV)
+            </button>
+          </div>
           
           {sortedOrders.length === 0 ? (
             <p style={{ opacity: 0.6, textAlign: 'center', padding: '2rem 0' }}>لم يتم العثور على طلبات مطابقة.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {sortedOrders.map(ord => {
-                const ordId = ord.id || ord._id;
+                const ordId = String(ord.id || ord._id);
+                const isSelected = selectedOrderIds.includes(ordId);
                 const statusColor = ord.status === 'Shipped' || ord.status === 'Delivered' ? '#4ade80' : ord.status === 'Processing' ? '#facc15' : '#60a5fa';
+                
                 return (
-                  <div key={ordId} style={{ background: '#242323', padding: '1.2rem', borderRadius: '10px', border: '1px solid rgba(255,247,238,0.15)' }}>
+                  <div key={ordId} style={{ background: '#242323', padding: '1.2rem', borderRadius: '10px', border: isSelected ? '2px solid #FD7100' : '1px solid rgba(255,247,238,0.15)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', borderBottom: '1px solid rgba(255,247,238,0.1)', paddingBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                      <div>
-                        <strong style={{ fontSize: '1rem', color: '#FD7100' }}>طلب #{ordId}</strong>
-                        <span style={{ display: 'block', fontSize: '0.75rem', opacity: 0.6 }}>{new Date(ord.createdAt || Date.now()).toLocaleString()}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={isSelected}
+                          onChange={() => toggleSelectSingleOrder(ordId)}
+                          style={{ width: '16px', height: '16px', accentColor: '#FD7100', cursor: 'pointer' }}
+                        />
+                        <div>
+                          <strong style={{ fontSize: '1rem', color: '#FD7100' }}>طلب #{ordId}</strong>
+                          <span style={{ display: 'block', fontSize: '0.75rem', opacity: 0.6 }}>{new Date(ord.createdAt || Date.now()).toLocaleString()}</span>
+                        </div>
                       </div>
                       
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
@@ -827,6 +1036,27 @@ export default function AdminDashboard() {
       {activeTab === 'inventory' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           
+          {/* BARCODE SCANNER QUICK LOOKUP MODE */}
+          <div style={{ background: '#2D2C2C', padding: '1.2rem 1.5rem', borderRadius: '12px', border: '2px dashed #FD7100' }}>
+            <h3 style={{ margin: '0 0 0.4rem 0', color: '#FD7100', fontSize: '1.05rem' }}>⚡ وضع ماسح الباركود السريع (Barcode Scanner Mode)</h3>
+            <p style={{ margin: '0 0 0.8rem 0', fontSize: '0.8rem', opacity: 0.7 }}>
+              قم بتوصيل قارئ الباركود (مثل Honeywell Voyager 1250g) وامسح أي منتج لجلب بياناته وتعديله فوراً.
+            </p>
+            <form onSubmit={handleBarcodeScanSubmit} style={{ display: 'flex', gap: '0.6rem' }}>
+              <input 
+                type="text"
+                ref={barcodeInputRef}
+                placeholder="امسح الباركود هنا أو أدخله يدوياً واضغط Enter..."
+                value={barcodeScanInput}
+                onChange={e => setBarcodeScanInput(e.target.value)}
+                style={{ flex: 1, padding: '0.7rem', borderRadius: '8px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', fontFamily: 'monospace', fontSize: '0.95rem' }}
+              />
+              <button type="submit" style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.7rem 1.2rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
+                🔍 بحث بالباركود
+              </button>
+            </form>
+          </div>
+
           {/* CSV STAGING / PREVIEW MODAL OR SECTION */}
           {stagedCsvProducts && (
             <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '2px solid #3b82f6' }}>
@@ -888,7 +1118,7 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* RESPONSIVE LOW-STOCK MONITOR (REMOVED rigid maxHeight restriction) */}
+            {/* RESPONSIVE LOW-STOCK MONITOR */}
             <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
               <h3 style={{ margin: '0 0 0.5rem 0', color: '#ef4444', fontSize: '1.1rem' }}>⚠️ مراقبة المخزون المنخفض ({lowStockProducts.length})</h3>
               <p style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', opacity: 0.7, lineHeight: '1.4' }}>
@@ -1116,7 +1346,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* TAB 3: SETTINGS */}
+      {/* TAB 3: SETTINGS & DISCOUNT CODE ANALYTICS */}
       {activeTab === 'settings' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
           <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
@@ -1135,7 +1365,7 @@ export default function AdminDashboard() {
           </div>
 
           <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,247,238,0.2)' }}>
-            <h3 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>🎟️ الخصومات ورموز القسائم</h3>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#FD7100' }}>🎟️ الخصومات ورموز القسائم وتحليلاتها</h3>
             
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
               <input type="text" placeholder="الرمز (مثال: KARAM10)" value={newPromoCode} onChange={e => setNewPromoCode(e.target.value)} style={{ flex: 1, padding: '0.5rem', borderRadius: '6px', background: '#242323', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', textTransform: 'uppercase', textAlign: 'right' }} />
@@ -1143,16 +1373,25 @@ export default function AdminDashboard() {
               <button type="button" onClick={handleAddPromoCode} style={{ background: '#FD7100', color: '#FFF7EE', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>إضافة</button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '200px', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: '250px', overflowY: 'auto' }}>
               {Object.keys(settings.discountCodes || {}).length === 0 ? (
                 <p style={{ opacity: 0.6, fontSize: '0.85rem' }}>لا توجد رموز خصم نشطة.</p>
               ) : (
-                Object.entries(settings.discountCodes).map(([code, val]) => (
-                  <div key={code} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#242323', padding: '0.5rem 0.8rem', borderRadius: '6px' }}>
-                    <span style={{ fontWeight: 'bold', color: '#4ade80' }}>{code} ({val < 1 ? `خصم ${val * 100}%` : `خصم ${val} دينار`})</span>
-                    <button onClick={() => handleRemovePromoCode(code)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>إزالة</button>
-                  </div>
-                ))
+                Object.entries(settings.discountCodes).map(([code, val]) => {
+                  const analytics = promoCodeAnalytics[code] || { count: 0, totalValueGiven: 0 };
+                  return (
+                    <div key={code} style={{ background: '#242323', padding: '0.7rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(255,247,238,0.1)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                        <span style={{ fontWeight: 'bold', color: '#4ade80', fontSize: '0.9rem' }}>{code} ({val < 1 ? `خصم ${val * 100}%` : `خصم ${val} دينار`})</span>
+                        <button onClick={() => handleRemovePromoCode(code)} style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>إزالة</button>
+                      </div>
+                      <div style={{ fontSize: '0.75rem', opacity: 0.8, display: 'flex', gap: '1rem' }}>
+                        <span>مرات الاستخدام: <strong>{analytics.count}</strong></span>
+                        <span>إجمالي الخصومات المقدمة: <strong style={{ color: '#FD7100' }}>{analytics.totalValueGiven.toFixed(2)} دينار</strong></span>
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>

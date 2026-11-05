@@ -6,6 +6,7 @@ const translations = {
     storeName: "Karam Stores",
     trackOrders: "My Past Orders",
     cart: "Cart",
+    wishlist: "Wishlist",
     searchPlaceholder: "Search store products...",
     completeCatalog: "Complete Product Catalog",
     categoryCatalog: "Category Products",
@@ -26,6 +27,7 @@ const translations = {
     viewDetails: "View product",
     cartReview: "Your Shopping Cart & Review",
     emptyCart: "Your cart is empty.",
+    emptyWishlist: "Your wishlist is empty.",
     clearCart: "Clear Cart",
     subtotal: "Subtotal:",
     deliveryFeeLabel: "Estimated Delivery Fee:",
@@ -77,14 +79,19 @@ const translations = {
     navHome: "Home",
     navSearch: "Search",
     navCart: "Cart",
+    navWishlist: "Wishlist",
     navOrders: "Orders",
     backToTop: "↑ Top",
-    footerSlogan: "كل ما يلزم المنزل تحت سقف واحد"
+    footerSlogan: "كل ما يلزم المنزل تحت سقف واحد",
+    badgeBestSeller: "Best Seller",
+    badgeNewArrival: "New Arrival",
+    badgeLowStock: "Low Stock"
   },
   ar: {
     storeName: "كرم ستورز",
     trackOrders: "طلباتي",
     cart: "السلة",
+    wishlist: "المفضلة",
     searchPlaceholder: "ابحث عن منتجات المتجر...",
     completeCatalog: "كتالوج المنتجات الكامل",
     categoryCatalog: "منتجات الفئة",
@@ -105,6 +112,7 @@ const translations = {
     viewDetails: "عرض المنتج",
     cartReview: "سلة التسوق والمراجعة",
     emptyCart: "سلة التسوق فارغة.",
+    emptyWishlist: "قائمة المفضلة فارغة.",
     clearCart: "إفراغ السلة",
     subtotal: "المجموع الفرعي:",
     deliveryFeeLabel: "رسوم التوصيل المقدرة:",
@@ -156,16 +164,30 @@ const translations = {
     navHome: "الرئيسية",
     navSearch: "البحث",
     navCart: "السلة",
+    navWishlist: "المفضلة",
     navOrders: "الطلبات",
     backToTop: "↑ للأعلى",
-    footerSlogan: "كل ما يلزم المنزل تحت سقف واحد"
+    footerSlogan: "كل ما يلزم المنزل تحت سقف واحد",
+    badgeBestSeller: "الأكثر مبيعاً",
+    badgeNewArrival: "وصل حديثاً",
+    badgeLowStock: "نفاد قريب"
   }
 };
 
 export default function StoreApp() {
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
+  const [wishlist, setWishlist] = useState(() => {
+    try {
+      const saved = localStorage.getItem('karam_wishlist');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isWishlistOpen, setIsWishlistOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isOrderHistoryOpen, setIsOrderHistoryOpen] = useState(false);
   
@@ -213,6 +235,28 @@ export default function StoreApp() {
   const [allOrders, setAllOrders] = useState([]);
   const [expandedReceiptId, setExpandedReceiptId] = useState(null);
   const [lookupPhone, setLookupPhone] = useState(localStorage.getItem('user_phone') || '');
+
+  // Save wishlist to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('karam_wishlist', JSON.stringify(wishlist));
+    } catch (e) {}
+  }, [wishlist]);
+
+  const toggleWishlist = (product, e) => {
+    if (e) e.stopPropagation();
+    const pId = product.id || product._id;
+    setWishlist(prev => {
+      const exists = prev.some(item => (item.id || item._id) === pId);
+      if (exists) {
+        triggerToast(lang === 'ar' ? 'تم إزالة المنتج من المفضلة' : 'Removed from wishlist', 'success');
+        return prev.filter(item => (item.id || item._id) !== pId);
+      } else {
+        triggerToast(lang === 'ar' ? 'تمت إضافة المنتج إلى المفضلة' : 'Added to wishlist', 'success');
+        return [...prev, product];
+      }
+    });
+  };
 
   // Jordanian Governorates Mapping for delivery fee tiers
   const jordanGovernorates = [
@@ -274,6 +318,7 @@ export default function StoreApp() {
       isMoreCatalogOpen || 
       submittedSearchQuery !== '' || 
       isCartOpen || 
+      isWishlistOpen ||
       isCheckoutOpen || 
       isOrderHistoryOpen ||
       isSearchOpen;
@@ -287,6 +332,7 @@ export default function StoreApp() {
         setIsMoreCatalogOpen(false);
         setSubmittedSearchQuery('');
         setIsCartOpen(false);
+        setIsWishlistOpen(false);
         setIsCheckoutOpen(false);
         setIsOrderHistoryOpen(false);
         setIsSearchOpen(false);
@@ -303,6 +349,7 @@ export default function StoreApp() {
     isMoreCatalogOpen, 
     submittedSearchQuery, 
     isCartOpen, 
+    isWishlistOpen,
     isCheckoutOpen, 
     isOrderHistoryOpen,
     isSearchOpen
@@ -315,6 +362,7 @@ export default function StoreApp() {
     setIsMoreCatalogOpen(false);
     setSubmittedSearchQuery('');
     setIsSearchOpen(false);
+    setIsWishlistOpen(false);
     setActiveImage(product.image || (product.images && product.images[0]) || '');
     setSelectedSize(product.sizes && product.sizes.length > 0 ? product.sizes[0] : '');
     
@@ -333,7 +381,6 @@ export default function StoreApp() {
     triggerToast(lang === 'ar' ? 'تمت إضافة المنتج إلى السلة بنجاح!' : 'Product added to cart successfully!');
   };
 
-  // Direct Checkout Routing on BUY IT NOW
   const buyItNowAction = () => {
     if (!selectedProduct) return;
     addToCart({ ...selectedProduct, selectedSize, selectedColor: selectedColorName }, quantity);
@@ -381,7 +428,6 @@ export default function StoreApp() {
 
   const cartSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   
-  // Fee determination based on governorate selection
   const isSelectedCityAmman = selectedCity === 'Amman';
   const deliveryFee = isSelectedCityAmman 
     ? (storeSettings.deliveryFee !== undefined ? storeSettings.deliveryFee : 2.00) 
@@ -403,7 +449,6 @@ export default function StoreApp() {
     }
   };
 
-  // WhatsApp Address Pre-fill Enhancement
   const handleWhatsAppCheckout = () => {
     if (cart.length === 0) return;
     
@@ -595,6 +640,18 @@ export default function StoreApp() {
     marginBottom: '1rem'
   };
 
+  // Helper to render product badge
+  const renderProductBadge = (product) => {
+    const stock = product.stock !== undefined ? product.stock : 10;
+    if (stock <= 3) {
+      return <span className="product-badge low-stock" style={{ background: '#ef4444', color: '#fff', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold' }}>{t.badgeLowStock}</span>;
+    }
+    if (product.featured) {
+      return <span className="product-badge best-seller" style={{ background: '#FD7100', color: '#1c1b1b', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold' }}>{t.badgeBestSeller}</span>;
+    }
+    return null;
+  };
+
   return (
     <div dir={isRtl ? 'rtl' : 'ltr'} className="store-container">
       
@@ -632,7 +689,7 @@ export default function StoreApp() {
 
       {/* Top Navbar */}
       <nav className="navbar">
-        <div onClick={() => { setSelectedProduct(null); setSelectedCategoryView(null); setIsMoreCatalogOpen(false); setSubmittedSearchQuery(''); setCatalogSearch(''); setIsSearchOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
+        <div onClick={() => { setSelectedProduct(null); setSelectedCategoryView(null); setIsMoreCatalogOpen(false); setSubmittedSearchQuery(''); setCatalogSearch(''); setIsSearchOpen(false); setIsWishlistOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
           <img src="/logo.jpg" alt="Logo" style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #FFF7EE' }} onError={(e) => { e.target.style.display = 'none'; }} />
           <h2 style={{ margin: 0, fontSize: '1.1rem', letterSpacing: '-0.5px', color: '#FFF7EE', fontWeight: '800' }}>{t.storeName}</h2>
         </div>
@@ -641,13 +698,16 @@ export default function StoreApp() {
           <button onClick={() => setLang(lang === 'en' ? 'ar' : 'en')} style={{ background: 'transparent', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)', padding: '0.4rem 0.6rem', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.75rem' }}>
             {lang === 'en' ? 'العربية' : 'English'}
           </button>
+          <button onClick={() => { window.history.pushState({ modalOpen: true }, ''); setIsWishlistOpen(true); }} style={{ background: 'transparent', border: '1px solid rgba(255,247,238,0.3)', color: '#FFF7EE', padding: '0.4rem 0.7rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>
+            ❤️ ({wishlist.length})
+          </button>
           <button onClick={() => { window.history.pushState({ modalOpen: true }, ''); setIsCartOpen(!isCartOpen); }} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: '0.85rem' }}>
             {t.cart} ({cart.reduce((sum, item) => sum + item.quantity, 0)})
           </button>
         </div>
       </nav>
 
-      {/* Toggleable Search Bar - Fixed Enter key submission behavior */}
+      {/* Toggleable Search Bar */}
       {isSearchOpen && (
         <div style={{ background: '#1c1b1b', borderBottom: '1px solid rgba(255,247,238,0.15)', padding: '0.8rem 1rem', display: 'flex', justifyContent: 'center', position: 'relative', zIndex: 95 }}>
           <form onSubmit={handleSearchSubmit} style={{ width: '100%', maxWidth: '600px', position: 'relative' }}>
@@ -695,7 +755,15 @@ export default function StoreApp() {
             </div>
           </div>
 
-          <div style={{ width: '100%', background: '#1c1b1b', borderTop: '1px solid rgba(255,247,238,0.15)', borderBottom: '1px solid rgba(255,247,238,0.15)', marginBottom: '1.5rem', overflow: 'hidden' }}>
+          <div style={{ width: '100%', background: '#1c1b1b', borderTop: '1px solid rgba(255,247,238,0.15)', borderBottom: '1px solid rgba(255,247,238,0.15)', marginBottom: '1.5rem', overflow: 'hidden', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 10 }}>
+              <button 
+                onClick={(e) => toggleWishlist(selectedProduct, e)}
+                style={{ background: 'rgba(45,44,44,0.8)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.2rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                {wishlist.some(item => (item.id || item._id) === (selectedProduct.id || selectedProduct._id)) ? '❤️' : '🤍'}
+              </button>
+            </div>
             <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto', aspectRatio: '16 / 9', maxHeight: '450px', background: '#242323' }}>
               <img src={activeImage || selectedProduct.image || 'https://via.placeholder.com/600'} alt={selectedProduct.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
@@ -713,16 +781,19 @@ export default function StoreApp() {
             )}
 
             <div style={{ background: '#2D2C2C', padding: '1.5rem', borderRadius: '14px', border: '1px solid rgba(255,247,238,0.2)', marginBottom: '2rem' }}>
-              <div style={{ marginBottom: '1rem' }}>
-                <span style={{ fontSize: '0.8rem', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '0.3rem', color: '#FD7100' }}>
-                  {selectedProduct.category || 'Cast Aluminum'}
-                </span>
-                <h1 style={{ margin: 0, fontSize: '1.6rem', color: '#FFF7EE', fontWeight: '800', lineHeight: '1.3' }}>
-                  {selectedProduct.name}
-                </h1>
+              <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <span style={{ fontSize: '0.8rem', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '0.3rem', color: '#FD7100' }}>
+                    {selectedProduct.category || 'Cast Aluminum'}
+                  </span>
+                  <h1 style={{ margin: 0, fontSize: '1.6rem', color: '#FFF7EE', fontWeight: '800', lineHeight: '1.3' }}>
+                    {selectedProduct.name}
+                  </h1>
+                </div>
+                <div>{renderProductBadge(selectedProduct)}</div>
               </div>
 
-              {/* MULTI-COLOR SELECTION BOX */}
+              {/* DYNAMIC COLOR SWATCH IMAGE SYNC */}
               {(() => {
                 const productColors = Array.isArray(selectedProduct.colorsList) && selectedProduct.colorsList.length > 0 
                   ? selectedProduct.colorsList 
@@ -738,7 +809,13 @@ export default function StoreApp() {
                         <button
                           key={idx}
                           type="button"
-                          onClick={() => setSelectedColorName(c.name)}
+                          onClick={() => {
+                            setSelectedColorName(c.name);
+                            // If additional images exist corresponding to color variant index, sync activeImage
+                            if (selectedProduct.images && selectedProduct.images[idx]) {
+                              setActiveImage(selectedProduct.images[idx]);
+                            }
+                          }}
                           style={{
                             width: '36px',
                             height: '36px',
@@ -777,7 +854,6 @@ export default function StoreApp() {
                 </button>
               </div>
 
-              {/* Direct Checkout Routing on BUY IT NOW */}
               <button onClick={buyItNowAction} style={{ width: '100%', background: 'transparent', color: '#FFF7EE', border: '1px solid #FFF7EE', padding: '0.8rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', marginBottom: '1.5rem', transition: 'all 0.2s' }}>
                 {t.buyItNow}
               </button>
@@ -793,11 +869,20 @@ export default function StoreApp() {
               </h3>
               <div className="grid-2col">
                 {similarProducts.map(simProd => (
-                  <div key={simProd.id || simProd._id} onClick={() => openProductDetails(simProd)} className="store-card">
+                  <div key={simProd.id || simProd._id} onClick={() => openProductDetails(simProd)} className="store-card" style={{ position: 'relative' }}>
+                    <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 5 }}>
+                      <button 
+                        onClick={(e) => toggleWishlist(simProd, e)}
+                        style={{ background: 'rgba(45,44,44,0.8)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        {wishlist.some(item => (item.id || item._id) === (simProd.id || simProd._id)) ? '❤️' : '🤍'}
+                      </button>
+                    </div>
                     <div>
                       <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.5rem', background: '#242323' }}>
                         <img src={simProd.image || 'https://via.placeholder.com/200'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       </div>
+                      <div style={{ marginBottom: '0.3rem' }}>{renderProductBadge(simProd)}</div>
                       <h4 className="product-title">{simProd.name}</h4>
                       <p style={{ margin: '0 0 0.6rem 0', fontSize: '0.9rem', fontWeight: '700', color: '#FD7100' }}>{Number(simProd.price).toFixed(3)} JD</p>
                     </div>
@@ -833,12 +918,23 @@ export default function StoreApp() {
               <p style={{ color: '#FFF7EE', opacity: 0.6, padding: '2rem 0', gridColumn: 'span 2', textAlign: 'center' }}>{lang === 'ar' ? 'لم يتم العثور على منتجات مطابقة لبحثك.' : 'No matching products found.'}</p>
             ) : (
               sortedSearchResults.map(product => (
-                <div key={product.id || product._id} onClick={() => openProductDetails(product)} className="store-card">
+                <div key={product.id || product._id} onClick={() => openProductDetails(product)} className="store-card" style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 5 }}>
+                    <button 
+                      onClick={(e) => toggleWishlist(product, e)}
+                      style={{ background: 'rgba(45,44,44,0.8)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      {wishlist.some(item => (item.id || item._id) === (product.id || product._id)) ? '❤️' : '🤍'}
+                    </button>
+                  </div>
                   <div>
                     <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.6rem', background: '#242323' }}>
                       <img src={product.image || 'https://via.placeholder.com/260'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
-                    <span className="badge-category">{product.category || 'General'}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                      <span className="badge-category">{product.category || 'General'}</span>
+                      {renderProductBadge(product)}
+                    </div>
                     <h4 className="product-title">{product.name}</h4>
                     <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(3)} JD</p>
                   </div>
@@ -869,12 +965,23 @@ export default function StoreApp() {
               <p style={{ color: '#FFF7EE', opacity: 0.6, padding: '2rem 0', gridColumn: 'span 2', textAlign: 'center' }}>{lang === 'ar' ? 'لا توجد منتجات في هذه الفئة حالياً.' : 'No products found in this category.'}</p>
             ) : (
               categoryViewProducts.map(product => (
-                <div key={product.id || product._id} onClick={() => openProductDetails(product)} className="store-card">
+                <div key={product.id || product._id} onClick={() => openProductDetails(product)} className="store-card" style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 5 }}>
+                    <button 
+                      onClick={(e) => toggleWishlist(product, e)}
+                      style={{ background: 'rgba(45,44,44,0.8)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      {wishlist.some(item => (item.id || item._id) === (product.id || product._id)) ? '❤️' : '🤍'}
+                    </button>
+                  </div>
                   <div>
                     <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.6rem', background: '#242323' }}>
                       <img src={product.image || 'https://via.placeholder.com/260'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
-                    <span className="badge-category">{product.category || 'General'}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                      <span className="badge-category">{product.category || 'General'}</span>
+                      {renderProductBadge(product)}
+                    </div>
                     <h4 className="product-title">{product.name}</h4>
                     <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(3)} JD</p>
                   </div>
@@ -930,12 +1037,23 @@ export default function StoreApp() {
               <p style={{ color: '#FFF7EE', opacity: 0.6, padding: '2rem 0', gridColumn: 'span 2', textAlign: 'center' }}>{lang === 'ar' ? 'لا توجد منتجات في هذه الفئة.' : 'No products found in this category.'}</p>
             ) : (
               moreFilteredProducts.map(product => (
-                <div key={product.id || product._id} onClick={() => openProductDetails(product)} className="store-card">
+                <div key={product.id || product._id} onClick={() => openProductDetails(product)} className="store-card" style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 5 }}>
+                    <button 
+                      onClick={(e) => toggleWishlist(product, e)}
+                      style={{ background: 'rgba(45,44,44,0.8)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      {wishlist.some(item => (item.id || item._id) === (product.id || product._id)) ? '❤️' : '🤍'}
+                    </button>
+                  </div>
                   <div>
                     <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.6rem', background: '#242323' }}>
                       <img src={product.image || 'https://via.placeholder.com/260'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
-                    <span className="badge-category">{product.category || 'General'}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                      <span className="badge-category">{product.category || 'General'}</span>
+                      {renderProductBadge(product)}
+                    </div>
                     <h4 className="product-title">{product.name}</h4>
                     <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(3)} JD</p>
                   </div>
@@ -955,11 +1073,20 @@ export default function StoreApp() {
               <div style={{ position: 'relative', zIndex: 10, width: '92%', maxWidth: '1000px', margin: '0 auto 15px auto' }}>
                 <div style={{ display: 'flex', gap: '0.8rem', overflowX: 'auto', paddingBottom: '0.4rem' }}>
                   {featuredProducts.map(product => (
-                    <div key={`slide-${product.id || product._id}`} onClick={() => openProductDetails(product)} className="store-card" style={{ minWidth: '190px', maxWidth: '190px', flexShrink: 0, background: 'rgba(45, 44, 44, 0.95)', backdropFilter: 'blur(8px)' }}>
+                    <div key={`slide-${product.id || product._id}`} onClick={() => openProductDetails(product)} className="store-card" style={{ minWidth: '190px', maxWidth: '190px', flexShrink: 0, background: 'rgba(45, 44, 44, 0.95)', backdropFilter: 'blur(8px)', position: 'relative' }}>
+                      <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 5 }}>
+                        <button 
+                          onClick={(e) => toggleWishlist(product, e)}
+                          style={{ background: 'rgba(45,44,44,0.8)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          {wishlist.some(item => (item.id || item._id) === (product.id || product._id)) ? '❤️' : '🤍'}
+                        </button>
+                      </div>
                       <div>
                         <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '8px', marginBottom: '0.5rem', background: '#242323' }}>
                           <img src={product.image || 'https://via.placeholder.com/200'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
+                        <div style={{ marginBottom: '0.2rem' }}>{renderProductBadge(product)}</div>
                         <h4 className="product-title">{product.name}</h4>
                         <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(3)} JD</p>
                       </div>
@@ -1018,12 +1145,23 @@ export default function StoreApp() {
 
             <div className="grid-2col">
               {homeCatalogProducts.map(product => (
-                <div key={product.id || product._id} onClick={() => openProductDetails(product)} className="store-card">
+                <div key={product.id || product._id} onClick={() => openProductDetails(product)} className="store-card" style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 5 }}>
+                    <button 
+                      onClick={(e) => toggleWishlist(product, e)}
+                      style={{ background: 'rgba(45,44,44,0.8)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      {wishlist.some(item => (item.id || item._id) === (product.id || product._id)) ? '❤️' : '🤍'}
+                    </button>
+                  </div>
                   <div>
                     <div style={{ width: '100%', aspectRatio: '1 / 1', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.6rem', background: '#242323' }}>
                       <img src={product.image || 'https://via.placeholder.com/260'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </div>
-                    <span className="badge-category">{product.category || 'General'}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
+                      <span className="badge-category">{product.category || 'General'}</span>
+                      {renderProductBadge(product)}
+                    </div>
                     <h4 className="product-title">{product.name}</h4>
                     <p style={{ margin: '0 0 0.8rem 0', fontSize: '1rem', fontWeight: '800', color: '#FD7100' }}>{Number(product.price).toFixed(3)} JD</p>
                   </div>
@@ -1095,13 +1233,17 @@ export default function StoreApp() {
 
       {/* MOBILE BOTTOM APP NAVIGATION BAR */}
       <div className="bottom-nav">
-        <button onClick={() => { setSelectedProduct(null); setSelectedCategoryView(null); setIsMoreCatalogOpen(false); setSubmittedSearchQuery(''); setIsSearchOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="bottom-nav-btn">
+        <button onClick={() => { setSelectedProduct(null); setSelectedCategoryView(null); setIsMoreCatalogOpen(false); setSubmittedSearchQuery(''); setIsSearchOpen(false); setIsWishlistOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="bottom-nav-btn">
           <img src="/icons/home.png" alt="Home" className="bottom-nav-icon" style={{ width: '22px', height: '22px', objectFit: 'contain' }} onError={(e) => { e.target.style.display = 'none'; }} />
           <span>{t.navHome}</span>
         </button>
-        <button onClick={() => { window.history.pushState({ modalOpen: true }, ''); setIsSearchOpen(!isSearchOpen); }} className="bottom-nav-btn">
+        <button onClick={() => { window.history.pushState({ modalOpen: true }, ''); setIsSearchOpen(!isSearchOpen); setIsWishlistOpen(false); }} className="bottom-nav-btn">
           <img src="/icons/search.png" alt="Search" className="bottom-nav-icon" style={{ width: '22px', height: '22px', objectFit: 'contain' }} onError={(e) => { e.target.style.display = 'none'; }} />
           <span>{t.navSearch}</span>
+        </button>
+        <button onClick={() => { window.history.pushState({ modalOpen: true }, ''); setIsWishlistOpen(true); }} className="bottom-nav-btn">
+          <span style={{ fontSize: '20px' }}>❤️</span>
+          <span>{t.navWishlist}</span>
         </button>
         <button onClick={() => { window.history.pushState({ modalOpen: true }, ''); setIsCartOpen(true); }} className="bottom-nav-btn">
           <img src="/icons/cart.png" alt="Cart" className="bottom-nav-icon" style={{ width: '22px', height: '22px', objectFit: 'contain' }} onError={(e) => { e.target.style.display = 'none'; }} />
@@ -1112,6 +1254,52 @@ export default function StoreApp() {
           <span>{t.navOrders}</span>
         </button>
       </div>
+
+      {/* WISHLIST MODAL */}
+      {isWishlistOpen && (
+        <div className="modal-overlay" style={{ alignItems: 'flex-end' }}>
+          <div dir={isRtl ? 'rtl' : 'ltr'} className="modal-content modal-bottom-sheet">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,247,238,0.2)', paddingBottom: '0.8rem', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0, color: '#FFF7EE', fontSize: '1.1rem', fontWeight: '700' }}>❤️ {t.wishlist} ({wishlist.length})</h3>
+              <button onClick={() => window.history.back()} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#FFF7EE' }}>✕</button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.8rem', maxHeight: '45vh' }}>
+              {wishlist.length === 0 ? (
+                <p style={{ color: '#FFF7EE', opacity: 0.6, textAlign: 'center', marginTop: '2rem', fontSize: '0.9rem' }}>{t.emptyWishlist}</p>
+              ) : (
+                wishlist.map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,247,238,0.1)', paddingBottom: '0.6rem' }}>
+                    <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', cursor: 'pointer', flex: 1 }} onClick={() => openProductDetails(item)}>
+                      <div style={{ width: '45px', height: '45px', overflow: 'hidden', borderRadius: '6px', flexShrink: 0, border: '1px solid rgba(255,247,238,0.2)' }}>
+                        <img src={item.image || 'https://via.placeholder.com/45'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </div>
+                      <div>
+                        <h4 style={{ margin: '0 0 0.1rem 0', fontSize: '0.85rem', color: '#FFF7EE', fontWeight: '600' }}>{item.name}</h4>
+                        <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#FD7100' }}>{Number(item.price).toFixed(3)} JD</span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <button 
+                        onClick={() => {
+                          addToCart(item, 1);
+                          triggerToast(lang === 'ar' ? 'تمت إضافة المنتج إلى السلة!' : 'Added to cart!');
+                        }} 
+                        className="btn-primary" 
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
+                      >
+                        {t.addToCart}
+                      </button>
+                      <button onClick={(e) => toggleWishlist(item, e)} style={{ background: '#7f1d1d', color: '#FFF7EE', border: 'none', padding: '0.4rem 0.6rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}>✕</button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CART MODAL WINDOW */}
       {isCartOpen && (
@@ -1142,7 +1330,6 @@ export default function StoreApp() {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      {/* Increased touch targets for quantity adjustment buttons */}
                       <div style={{ display: 'flex', alignItems: 'center', border: '1px solid rgba(255,247,238,0.3)', borderRadius: '6px' }}>
                         <button onClick={() => updateQuantity(idx, -1)} style={{ background: '#242323', color: '#FFF7EE', border: 'none', padding: '0.4rem 0.8rem', cursor: 'pointer', fontWeight: 'bold' }}>-</button>
                         <span style={{ padding: '0 0.6rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#FFF7EE' }}>{item.quantity}</span>
@@ -1219,7 +1406,6 @@ export default function StoreApp() {
                 <input type="tel" placeholder={t.phonePlaceholder} maxLength="10" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} required className="form-input" />
               </div>
               
-              {/* Granular Jordanian Governorate Dropdown */}
               <div className="form-group">
                 <label className="form-label">{t.cityLabel}</label>
                 <select 
@@ -1241,7 +1427,6 @@ export default function StoreApp() {
                 <textarea placeholder={t.manualAddressPlaceholder} value={manualAddress} onChange={e => setManualAddress(e.target.value)} rows="3" required className="form-input" />
               </div>
 
-              {/* Address Map Coordinates / Pin Location Input */}
               <div className="form-group">
                 <label className="form-label">{t.mapCoordinatesLabel}</label>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -1321,9 +1506,14 @@ export default function StoreApp() {
               ) : (
                 myOrders.map(ord => {
                   const oId = ord.id || ord._id;
-                  const statusColor = ord.status === 'Shipped' ? '#4ade80' : ord.status === 'Processing' ? '#facc15' : '#60a5fa';
+                  const statusColor = ord.status === 'Shipped' || ord.status === 'Delivered' ? '#4ade80' : ord.status === 'Processing' ? '#facc15' : '#60a5fa';
                   const isExpanded = expandedReceiptId === oId;
                   const orderDate = new Date(ord.createdAt || Date.now()).toLocaleString();
+
+                  // Visual order milestone progress bar
+                  const statusSteps = ['Pending', 'Processing', 'Shipped', 'Delivered'];
+                  const currentStatus = ord.status || 'Pending';
+                  const currentStepIdx = Math.max(0, statusSteps.indexOf(currentStatus));
 
                   return (
                     <div key={oId} style={{ border: '1px solid rgba(255,247,238,0.2)', borderRadius: '10px', padding: '1rem', background: '#242323' }}>
@@ -1332,7 +1522,26 @@ export default function StoreApp() {
                           <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#FFF7EE' }}>{t.orderId} #{oId}</span>
                           <span style={{ display: 'block', fontSize: '0.7rem', color: '#FFF7EE', opacity: 0.6 }}>{orderDate}</span>
                         </div>
-                        <span style={{ border: '1px solid rgba(255,247,238,0.3)', color: statusColor, padding: '0.15rem 0.5rem', borderRadius: '10px', fontSize: '0.7rem', fontWeight: 'bold' }}>{ord.status || 'Pending'}</span>
+                        <span style={{ border: '1px solid rgba(255,247,238,0.3)', color: statusColor, padding: '0.15rem 0.5rem', borderRadius: '10px', fontSize: '0.7rem', fontWeight: 'bold' }}>{currentStatus}</span>
+                      </div>
+
+                      {/* VISUAL ORDER PROGRESS TIMELINE */}
+                      <div style={{ margin: '1rem 0 0.8rem 0', background: '#1c1b1b', padding: '0.8rem', borderRadius: '8px', border: '1px solid rgba(255,247,238,0.1)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
+                          {statusSteps.map((step, sIdx) => {
+                            const isPassed = sIdx <= currentStepIdx;
+                            return (
+                              <div key={step} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, zIndex: 2 }}>
+                                <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: isPassed ? '#FD7100' : '#444', color: '#fff', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', marginBottom: '4px', border: isPassed ? '2px solid #FFF7EE' : 'none' }}>
+                                  {sIdx + 1}
+                                </div>
+                                <span style={{ fontSize: '0.65rem', color: isPassed ? '#FFF7EE' : 'rgba(255,247,238,0.4)', textAlign: 'center', fontWeight: isPassed ? 'bold' : 'normal' }}>
+                                  {step}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.6rem' }}>
