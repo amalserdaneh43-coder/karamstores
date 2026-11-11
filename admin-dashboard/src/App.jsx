@@ -1265,12 +1265,63 @@ export default function AdminDashboard() {
                   </div>
 
                   <div style={{ gridColumn: 'span 2' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>رابط الصورة الرئيسية</label>
-                    <input type="text" value={formImage} onChange={e => setFormImage(e.target.value)} placeholder="/icons/... أو https://..." style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>الصورة الرئيسية (رابط أو رفع من الجهاز)</label>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input type="text" value={formImage} onChange={e => setFormImage(e.target.value)} placeholder="/icons/... أو https://..." style={{ flex: 1, padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                      <label style={{ background: '#3b82f6', color: '#fff', padding: '0.6rem 1rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', display: 'inline-block', whiteSpace: 'nowrap' }}>
+                        📁 اختيار صورة
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = (uploadEvent) => {
+                              setFormImage(uploadEvent.target.result);
+                              alert('تم تحميل الصورة بنجاح!');
+                            };
+                            reader.readAsDataURL(file);
+                          }} 
+                          style={{ display: 'none' }} 
+                        />
+                      </label>
+                    </div>
                   </div>
                   <div style={{ gridColumn: 'span 2' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>روابط الصور الإضافية (تفصل بينها بفواصل)</label>
-                    <input type="text" value={formImagesInput} onChange={e => setFormImagesInput(e.target.value)} placeholder="https://img1.com/a.jpg, https://img2.com/b.jpg" style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>روابط الصور الإضافية (تفصل بينها بفواصل أو ارفع عدة صور)</label>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input type="text" value={formImagesInput} onChange={e => setFormImagesInput(e.target.value)} placeholder="https://img1.com/a.jpg, https://img2.com/b.jpg" style={{ flex: 1, padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                      <label style={{ background: '#3b82f6', color: '#fff', padding: '0.6rem 1rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', display: 'inline-block', whiteSpace: 'nowrap' }}>
+                        📁 رفع صور إضافية
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          multiple 
+                          onChange={(e) => {
+                            const files = Array.from(e.target.files);
+                            if (files.length === 0) return;
+                            let processedCount = 0;
+                            const newUrls = [];
+                            files.forEach(file => {
+                              const reader = new FileReader();
+                              reader.onload = (uploadEvent) => {
+                                newUrls.push(uploadEvent.target.result);
+                                processedCount++;
+                                if (processedCount === files.length) {
+                                  const currentInput = formImagesInput.trim();
+                                  const combined = currentInput ? currentInput + ', ' + newUrls.join(', ') : newUrls.join(', ');
+                                  setFormImagesInput(combined);
+                                  alert(`تم إضافة ${files.length} صور بنجاح!`);
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            });
+                          }} 
+                          style={{ display: 'none' }} 
+                        />
+                      </label>
+                    </div>
                   </div>
                   <div style={{ gridColumn: 'span 2' }}>
                     <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>الوصف والمميزات</label>
