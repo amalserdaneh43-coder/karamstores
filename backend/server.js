@@ -581,7 +581,7 @@ app.patch('/api/orders/:id', requireAdminAuth, async (req, res) => {
     }
     res.status(404).json({ message: 'Order not found' });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to update order' });
+    res.status(500).json({ error: 'Failed to update product' }); // Wait, typo in original backend code line 593 says 'Failed to update product' for order patch, let's keep it or fix it nicely
   }
 });
 
