@@ -1,13 +1,38 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const rateLimit = require('express-rate-limit');
 
 // --- 1. ENVIRONMENT VARIABLES & DOTENV ---
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+
+// Increased limit for Base64 image uploads directly from user devices
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ limit: '25mb', extended: true }));
+
+// --- RATE LIMITING MIDDLEWARE ---
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 300, 
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests from this IP, please try again after 15 minutes.' }
+});
+
+const orderLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many order submissions from this IP. Please try again later.' }
+});
+
+// Apply rate limiters to public API routes
+app.use('/api/', apiLimiter);
+app.post('/api/orders', orderLimiter);
 
 // --- MONGODB CONNECTION ---
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://amalserdaneh43_db_user:amalamal22@karam.vuy0bv0.mongodb.net/karam_stores?retryWrites=true&w=majority';
@@ -70,6 +95,7 @@ const orderSchema = new mongoose.Schema({
     arabicName: String,
     phone1: String,
     phone2: String,
+    governorate: String,
     manualAddress: String,
     mapCoordinates: String,
     paymentMethod: { type: String, default: 'Cash on Delivery' }
@@ -189,7 +215,7 @@ app.delete('/api/categories/:name', requireAdminAuth, async (req, res) => {
   }
 });
 
-// --- PRODUCT ENDPOINTS (WITH PAGINATION SUPPORT) ---
+// --- PRODUCT ENDPOINTS ---
 app.get('/api/products', async (req, res) => {
   try {
     const { page, limit } = req.query;
@@ -346,7 +372,7 @@ app.delete('/api/products/:id', requireAdminAuth, async (req, res) => {
   }
 });
 
-// --- ORDER ENDPOINTS (WITH ATOMIC TRANSACTIONS & CASE-INSENSITIVE PROMO VALIDATION) ---
+// --- ORDER ENDPOINTS ---
 app.post('/api/orders', async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -354,7 +380,6 @@ app.post('/api/orders', async (req, res) => {
     const incomingOrder = req.body;
     const items = incomingOrder.items || [];
 
-    // 1. Verify all stock levels upfront and decrement atomically
     for (const item of items) {
       const prodId = String(item.id || item._id);
       const prod = await Product.findOne({ $or: [{ id: prodId }, { _id: prodId }] }).session(session);
@@ -368,6 +393,10 @@ app.post('/api/orders', async (req, res) => {
       
       prod.stock = Math.max(0, prod.stock - item.quantity);
       await prod.save({ session });
+
+      if (prod.stock <= 3) {
+        console.warn(`[LOW STOCK ALERT WEBHOOK TRIGGER] Product ID: ${prod.id} (${prod.name}) has reached critical stock level: ${prod.stock}.`);
+      }
     }
 
     const count = await Order.countDocuments();
@@ -403,6 +432,7 @@ app.post('/api/orders', async (req, res) => {
         arabicName: incomingOrder.customer?.arabicName || incomingOrder.arabicName || 'N/A',
         phone1: incomingOrder.customer?.phone1 || incomingOrder.phone || 'N/A',
         phone2: incomingOrder.customer?.phone2 || incomingOrder.phone2 || '',
+        governorate: incomingOrder.customer?.governorate || incomingOrder.governorate || 'N/A',
         manualAddress: incomingOrder.customer?.manualAddress || incomingOrder.address || 'N/A',
         mapCoordinates: incomingOrder.customer?.mapCoordinates || 'Not pinned',
         paymentMethod: 'Cash on Delivery'
@@ -449,6 +479,7 @@ app.post('/api/orders/import', requireAdminAuth, async (req, res) => {
           arabicName: ord.customer?.arabicName || ord.arabicName || 'N/A',
           phone1: ord.customer?.phone1 || ord.phone || 'N/A',
           phone2: ord.customer?.phone2 || ord.phone2 || '',
+          governorate: ord.customer?.governorate || ord.governorate || 'N/A',
           manualAddress: ord.customer?.manualAddress || ord.address || 'N/A',
           mapCoordinates: ord.customer?.mapCoordinates || 'Not pinned',
           paymentMethod: 'Cash on Delivery'
@@ -554,7 +585,6 @@ app.patch('/api/orders/:id', requireAdminAuth, async (req, res) => {
   }
 });
 
-// --- ROBUST ORDER DELETE ENDPOINT ---
 app.delete('/api/orders/:id', requireAdminAuth, async (req, res) => {
   try {
     let rawId = req.params.id;
