@@ -519,7 +519,7 @@ export default function AdminDashboard() {
   // --- PRODUCT MANAGEMENT ---
   const handleSaveProduct = (e) => {
     e.preventDefault();
-    const extraImagesArray = formImagesInput ? formImagesInput.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const extraImagesArray = formImagesInput ? formImagesInput.split(/\s*\|\s*/).map(s => s.trim()).filter(Boolean) : [];
     const primaryColor = formColorsList[0] || { name: 'أحمر', hex: '#ef4444' };
 
     const productData = {
@@ -570,7 +570,7 @@ export default function AdminDashboard() {
     setFormPrice(prod.price !== undefined ? prod.price : '');
     setFormCategory(prod.category || 'مطبخ');
     setFormImage(prod.image || '');
-    setFormImagesInput(Array.isArray(prod.images) ? prod.images.join(', ') : '');
+    setFormImagesInput(Array.isArray(prod.images) ? prod.images.join(' | ') : '');
     setFormStock(prod.stock !== undefined ? String(prod.stock) : '10');
     setFormFeatured(prod.featured || false);
     setFormDescription(prod.description || '');
@@ -1289,9 +1289,9 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                   <div style={{ gridColumn: 'span 2' }}>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>روابط الصور الإضافية (تفصل بينها بفواصل أو ارفع عدة صور)</label>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '0.3rem' }}>روابط الصور الإضافية (تفصل بينها بعلامة | أو ارفع عدة صور)</label>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <input type="text" value={formImagesInput} onChange={e => setFormImagesInput(e.target.value)} placeholder="https://img1.com/a.jpg, https://img2.com/b.jpg" style={{ flex: 1, padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
+                      <input type="text" value={formImagesInput} onChange={e => setFormImagesInput(e.target.value)} placeholder="https://img1.com/a.jpg | https://img2.com/b.jpg" style={{ flex: 1, padding: '0.6rem', borderRadius: '6px', background: '#2D2C2C', color: '#FFF7EE', border: '1px solid rgba(255,247,238,0.3)' }} />
                       <label style={{ background: '#3b82f6', color: '#fff', padding: '0.6rem 1rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', display: 'inline-block', whiteSpace: 'nowrap' }}>
                         📁 رفع صور إضافية
                         <input 
@@ -1310,7 +1310,7 @@ export default function AdminDashboard() {
                                 processedCount++;
                                 if (processedCount === files.length) {
                                   const currentInput = formImagesInput.trim();
-                                  const combined = currentInput ? currentInput + ', ' + newUrls.join(', ') : newUrls.join(', ');
+                                  const combined = currentInput ? currentInput + ' | ' + newUrls.join(' | ') : newUrls.join(' | ');
                                   setFormImagesInput(combined);
                                   alert(`تم إضافة ${files.length} صور بنجاح!`);
                                 }
